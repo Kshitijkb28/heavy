@@ -1,0 +1,191 @@
+.counter {
+  position: fixed;
+  right: max(var(--gutter), env(safe-area-inset-right));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--counter);
+  height: var(--counter);
+  border: 1px solid var(--seam);
+  border-radius: 50%;
+  background: var(--plate);
+  color: var(--text);
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform var(--dur-1) var(--ease-out);
+  --rail-p: 0;
+}
+@media (min-width: 64rem) {
+  .counter {
+    display: none;
+  }
+}
+.counter:active {
+  transform: translateY(1px);
+}
+/* progress ring: the travelled track wrapped around the counter */
+.ring {
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(var(--signal) calc(var(--rail-p) * 360deg), transparent 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 1.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 1.5px));
+}
+.code {
+  position: relative;
+}
+
+/* the dialog is the whole viewport (its own backdrop hit area, touch-action none); the panel is the sheet */
+.sheet {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  overflow: visible;
+  touch-action: none;
+  opacity: 0;
+  transition:
+    opacity var(--dur-2) ease,
+    overlay var(--dur-2) allow-discrete,
+    display var(--dur-2) allow-discrete;
+}
+.sheet[open] {
+  opacity: 1;
+}
+.sheet::backdrop {
+  background: rgba(5, 5, 7, 0.62);
+  opacity: 0;
+  transition:
+    opacity var(--dur-2) ease,
+    overlay var(--dur-2) allow-discrete,
+    display var(--dur-2) allow-discrete;
+}
+.sheet[open]::backdrop {
+  opacity: 1;
+}
+.panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: calc(100% - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 6px max(var(--gutter), env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(var(--gutter), env(safe-area-inset-left));
+  background: rgba(11, 12, 16, 0.98);
+  border-top: 1px solid var(--seam);
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -24px 64px rgba(0, 0, 0, 0.6);
+  translate: 0 28px;
+  transition: translate var(--dur-2) var(--ease-out);
+}
+.sheet[open] .panel {
+  translate: 0 0;
+}
+/* rise in from below; browsers without @starting-style simply snap */
+@starting-style {
+  .sheet[open] {
+    opacity: 0;
+  }
+  .sheet[open]::backdrop {
+    opacity: 0;
+  }
+  .sheet[open] .panel {
+    translate: 0 28px;
+  }
+}
+.handle {
+  width: 36px;
+  height: 4px;
+  margin: 6px auto;
+  border-radius: 2px;
+  background: var(--steel);
+  opacity: 0.6;
+}
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: var(--tap);
+}
+.title {
+  margin: 0;
+  color: var(--muted);
+}
+.title b {
+  color: var(--text);
+  font-weight: 500;
+}
+.title span {
+  color: var(--mercury);
+}
+.close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap);
+  height: var(--tap);
+  margin-right: -12px;
+  border-radius: 50%;
+  color: var(--text);
+  cursor: pointer;
+}
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.links {
+  margin-top: 10px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: var(--row-h);
+  padding: 0 2px;
+  border-top: 1px solid var(--seam);
+  color: var(--text);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+.rowCode {
+  width: 2ch;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.rowLabel {
+  flex: 1 1 auto;
+}
+.rowMeta {
+  color: var(--muted);
+}
+.row[aria-current] {
+  color: var(--mercury);
+}
+.row[aria-current]::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 10px var(--signal);
+}

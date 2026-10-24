@@ -1,0 +1,748 @@
+@import "tailwindcss";
+
+/* ---------- HEAVY design tokens (docs/DESIGN.md §"Night Rig"). U1 owns this file and extends it; the token names are frozen. ---------- */
+:root {
+  --void: #050507;
+  --floor: #0b0c10;
+  --iron: #2a2d34;
+  --steel: #596270;
+  --text: #e8ecf2;
+  --muted: #9aa3af;
+  --mercury: #d7e6ff;
+  --signal: #ff3355;
+  --signal-deep: #7a0f23;
+  --seam: rgba(232, 236, 242, 0.08);
+
+  /* type scale (fluid) */
+  --t-hero: clamp(3.4rem, 15vw, 15rem);
+  --t-1: clamp(2.2rem, 1.3rem + 4vw, 5rem);
+  --t-2: clamp(1.5rem, 1.1rem + 1.6vw, 2.4rem);
+  --t-body: clamp(1rem, 0.95rem + 0.3vw, 1.125rem);
+  --t-small: 0.875rem;
+  --t-mono: 0.75rem;
+
+  --gutter: 16px;
+  --measure: 62ch;
+  --header-h: 64px;
+  --track-h: 56px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-drop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* beacon sweep 0 → 1 over one turn; U4 writes it from the scene each frame */
+  --beacon: 0;
+
+  /* ---- U1 additions (chrome metrics, scrims, timing) ---- */
+  --tap: 44px; /* minimum hit target */
+  --row-h: 56px; /* list and sheet rows */
+  --counter: 48px; /* phone stage counter */
+  --scrim: rgba(5, 5, 7, 0.92); /* ink well: --void at 92 % */
+  --plate: rgba(11, 12, 16, 0.92); /* --floor at 92 %: cards, counter, toast */
+  --dur-1: 150ms;
+  --dur-2: 320ms;
+  --dur-3: 500ms;
+  /* beacon glint 0 → 1: a triangular bump while --beacon crosses 0.42 … 0.58 (once per turn); read by the rail marker,
+     the lamps and the glinting titles. Pure calc so it re-evaluates wherever --beacon changes. */
+  --glint: clamp(0, min(calc((var(--beacon) - 0.42) / 0.08), calc((0.58 - var(--beacon)) / 0.08)), 1);
+  /* highlight band position for the glinting type: parked off-canvas (constant → no repaint) outside the pass */
+  --glint-x: clamp(-40%, calc((var(--beacon) - 0.4) / 0.2 * 180% - 40%), 140%);
+}
+@media (min-width: 400px) {
+  :root {
+    --gutter: 20px;
+  }
+}
+@media (min-width: 64rem) {
+  :root {
+    --gutter: 40px;
+  }
+}
+
+@theme inline {
+  --color-void: var(--void);
+  --color-floor: var(--floor);
+  --color-iron: var(--iron);
+  --color-steel: var(--steel);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-mercury: var(--mercury);
+  --color-signal: var(--signal);
+  --color-signal-deep: var(--signal-deep);
+  --font-display: var(--font-anton), Impact, "Arial Narrow Bold", sans-serif;
+  --font-body: var(--font-geist), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@layer base {
+  html {
+    background: var(--void);
+    color: var(--text);
+    color-scheme: dark;
+    overflow-x: clip;
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: auto;
+  }
+  body {
+    margin: 0;
+    min-height: 100svh;
+    overflow-x: clip;
+    font-family: var(--font-body);
+    font-size: var(--t-body);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-kerning: none;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    line-height: 0.92;
+    margin: 0;
+  }
+  a {
+    color: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+  }
+  /* programmatic focus targets (sections after an in-page jump) show no ring after a pointer interaction */
+  [tabindex="-1"]:focus:not(:focus-visible) {
+    outline: none;
+  }
+  ::selection {
+    background: var(--signal);
+    color: var(--void);
+  }
+  canvas {
+    display: block;
+  }
+}
+
+/* ---------- primitives shared by every unit (U1 may restyle, never rename) ---------- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+/* every DOM text block sits in an ink well: --void at 92 % under the text, feathered to 0 over the 24 px past the box */
+.ink-well {
+  position: relative;
+  padding: 24px;
+  background: var(--scrim);
+  box-shadow: 0 0 24px 12px var(--scrim);
+}
+@media (max-width: 399px) {
+  .ink-well {
+    padding: 20px;
+  }
+}
+/* the page content floats over the fixed stage; only text and controls receive pointer events so grabs reach the canvas */
+.page {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+.page :where(a, button, input, select, textarea, [tabindex], p, li, h1, h2, h3, table, .ink-well, .interactive) {
+  pointer-events: auto;
+}
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100vw;
+  height: 100lvh;
+  /* vertical pans over the stage scroll the page and pinches zoom it; grabs claim the pointer only after intent (useGrab) */
+  touch-action: pan-y pinch-zoom;
+}
+
+/* reveal holds (U7): exist only for JS users with motion on; a safety timer always lets content through */
+html[data-js][data-motion="full"] .hold {
+  opacity: 0;
+  animation: hold-safety 1ms linear 3s forwards;
+}
+@keyframes hold-safety {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Lenis (U1 SmoothScroll: fine pointers with motion on). Lenis adds html.lenis(.lenis-smooth|.lenis-stopped). ---------- */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+/* the phone stage sheet is open: the document behind the modal does not scroll (wheel, keys, iOS rubber-band) */
+html[data-sheet="open"],
+html[data-sheet="open"] body {
+  overflow: hidden;
+}
+
+/* ---------- chrome primitives (U1): skip link, toast ---------- */
+.skip-link {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap);
+  padding: 0 18px;
+  transform: translate(-50%, -200%);
+  background: var(--signal);
+  color: var(--void);
+  font-family: var(--font-mono);
+  font-size: var(--t-small);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  transition: transform var(--dur-2) var(--ease-drop);
+}
+.skip-link:focus-visible {
+  transform: translate(-50%, 0);
+  outline-color: var(--mercury);
+}
+
+/* polite status at the bottom centre, above the safe area (and above the rail on desktop); drops in with the bounce */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--tap);
+  max-width: calc(100vw - 2 * var(--gutter));
+  padding: 0 18px 0 14px;
+  transform: translate(-50%, -14px);
+  opacity: 0;
+  pointer-events: none;
+  background: var(--plate);
+  color: var(--text);
+  border: 1px solid var(--seam);
+  border-radius: 2px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  font-family: var(--font-body);
+  font-size: var(--t-small);
+  font-weight: 500;
+  line-height: 1.3;
+  transition:
+    opacity var(--dur-1) ease,
+    transform var(--dur-2) var(--ease-drop);
+}
+.toast::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  background: var(--signal);
+  box-shadow: 0 0 10px var(--signal);
+}
+.toast[data-visible="true"] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+@media (min-width: 64rem) {
+  .toast {
+    bottom: calc(var(--track-h) + 16px + env(safe-area-inset-bottom));
+  }
+}
+
+/* ---------- section scaffold (class contract for U6) ---------- */
+.section {
+  position: relative;
+  min-height: 100svh;
+  padding: calc(var(--header-h) + 24px) var(--gutter) 96px;
+  scroll-margin-top: var(--header-h);
+}
+@media (min-width: 64rem) {
+  .section {
+    padding-bottom: calc(var(--track-h) + 64px);
+  }
+}
+.section__head {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "index"
+    "title"
+    "annotation";
+  align-items: baseline;
+  row-gap: 16px;
+  column-gap: 24px;
+  padding-top: 16px;
+  margin: 0 0 40px;
+  border-top: 1px solid var(--seam);
+}
+@media (min-width: 48rem) {
+  .section__head {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "index title annotation";
+    column-gap: 32px;
+  }
+}
+.section__index {
+  grid-area: index;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.section__index::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: var(--signal);
+  box-shadow: 0 0 10px var(--signal);
+  opacity: calc(0.55 + 0.45 * var(--glint));
+}
+.section__title {
+  grid-area: title;
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-kerning: none;
+  font-size: var(--t-1);
+  line-height: 0.92;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--mercury);
+}
+.section__annotation {
+  grid-area: annotation;
+  justify-self: start;
+  margin: 0;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+@media (min-width: 48rem) {
+  .section__annotation {
+    justify-self: end;
+    text-align: right;
+  }
+}
+/* mono eyebrow in beacon red — only at ≥ 16 px / 500 (5.6:1 on void) */
+.eyebrow {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--signal);
+}
+.eyebrow::before {
+  content: "";
+  flex: none;
+  width: 20px;
+  height: 1px;
+  margin-top: 0.7em; /* the middle of the first line (line-height 1.4) */
+  background: var(--signal);
+}
+/* large index numerals (01 02 03) in the display face, for cards and entries */
+.numeral {
+  font-family: var(--font-display);
+  font-size: var(--t-2);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--steel);
+}
+
+/* ---------- controls (class contract for U6) ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  transition:
+    background-color var(--dur-1) ease,
+    border-color var(--dur-1) ease,
+    color var(--dur-1) ease,
+    box-shadow var(--dur-1) ease,
+    transform var(--dur-1) var(--ease-out);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn--primary {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: var(--void);
+  box-shadow: 0 10px 28px -10px rgba(255, 51, 85, 0.6);
+}
+.btn--primary:focus-visible {
+  outline-color: var(--mercury);
+}
+.btn--ghost {
+  border-color: var(--steel);
+  background: rgba(5, 5, 7, 0.4);
+}
+.btn--link {
+  min-height: var(--tap);
+  padding: 0 2px;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--steel);
+  text-underline-offset: 5px;
+}
+@media (hover: hover) {
+  .btn--primary:hover {
+    background: color-mix(in oklab, var(--signal) 88%, white);
+    border-color: color-mix(in oklab, var(--signal) 88%, white);
+    box-shadow: 0 0 28px -4px rgba(255, 51, 85, 0.55);
+  }
+  .btn--ghost:hover {
+    border-color: var(--text);
+    color: var(--mercury);
+  }
+  .btn--link:hover {
+    color: var(--mercury);
+    text-decoration-color: var(--mercury);
+  }
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--seam);
+  border-radius: 2px;
+  background: rgba(11, 12, 16, 0.6);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--text);
+  white-space: nowrap;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--tap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  position: relative;
+  padding: 24px;
+  background: var(--plate);
+  border: 1px solid var(--seam);
+  border-radius: 2px;
+  transition: border-color var(--dur-1) ease;
+}
+@media (max-width: 399px) {
+  .card {
+    padding: 20px;
+  }
+}
+@media (hover: hover) {
+  .card:hover {
+    border-color: rgba(89, 98, 112, 0.6);
+  }
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: var(--row-h);
+  padding: 8px 0;
+  margin: 0;
+  border-top: 1px solid var(--seam);
+  color: var(--text);
+  text-decoration: none;
+}
+.rows > .row:last-child,
+.row--last {
+  border-bottom: 1px solid var(--seam);
+}
+.row__label {
+  flex: 0 0 9ch;
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.row__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (hover: hover) {
+  a.row:hover,
+  button.row:hover {
+    background: rgba(232, 236, 242, 0.03);
+  }
+}
+
+/* ---------- hero (class contract for U6) ---------- */
+.hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 20px;
+  min-height: 100svh;
+}
+.hero-name {
+  font-size: var(--t-hero);
+  color: var(--mercury);
+  text-shadow: 0 0 60px rgba(215, 230, 255, 0.16);
+  transition: opacity 300ms ease;
+}
+/* U7 sets html[data-handoff="on"] once the iron letters have dropped: the DOM name fades but stays in the tree */
+html[data-handoff="on"] .hero-name {
+  opacity: 0;
+}
+.hero-line {
+  display: block;
+  white-space: nowrap;
+}
+.hero-hook {
+  max-width: 40ch;
+  margin: 0;
+  font-size: var(--t-body);
+  color: var(--text);
+}
+.hero-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+@media (max-width: 479px) {
+  .hero-ctas > .btn--primary,
+  .hero-ctas > .btn--ghost {
+    flex: 1 1 calc(50% - 6px);
+  }
+  .hero-ctas > .btn--link {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+}
+.hero-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hero-hint::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 8px var(--signal);
+  animation: hint-pulse 2.4s ease-in-out infinite;
+}
+@keyframes hint-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+/* "Give the letters a push" (U3 PushButton): quiet, 44 px; bottom-right of the hero on desktop, in the flow on phones */
+.push-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap);
+  padding: 0 14px;
+  border: 1px solid var(--seam);
+  border-radius: 2px;
+  background: rgba(11, 12, 16, 0.7);
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    color var(--dur-1) ease,
+    border-color var(--dur-1) ease,
+    transform var(--dur-1) var(--ease-out);
+}
+.push-button:active {
+  transform: translateY(1px);
+}
+@media (hover: hover) {
+  .push-button:hover {
+    color: var(--text);
+    border-color: var(--steel);
+  }
+}
+@media (min-width: 64rem) {
+  .hero .push-button {
+    position: absolute;
+    right: var(--gutter);
+    bottom: calc(var(--track-h) + 24px);
+  }
+}
+
+/* the giant email (Contact): display face, mercury, wraps anywhere; works as <a> or <button> */
+.giant-email {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  appearance: none;
+  text-align: left;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-kerning: none;
+  font-size: clamp(2rem, 8.5vw, 8.5rem);
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--mercury);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  cursor: copy;
+}
+
+/* beacon glint on the big type: a white-hot band with a red fringe crosses the glyphs once per turn (--glint-x is parked
+   off-canvas outside the pass, so the background value is constant and nothing repaints). No text-shadow here: it would
+   paint over clipped text. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .section__title,
+  .giant-email {
+    background-image: linear-gradient(
+      100deg,
+      var(--mercury) calc(var(--glint-x) - 16%),
+      #ffffff calc(var(--glint-x) - 3%),
+      #ffc2cc var(--glint-x),
+      var(--mercury) calc(var(--glint-x) + 12%)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+/* hero labels sit over the lit stage (key-light pool, chains, the beacon's sweep): a plate keeps them ≥ 4.5:1 on any frame */
+[data-section="hero"] .eyebrow,
+.hero-hint {
+  background: var(--plate);
+  padding: 6px 12px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* the poster tier has no canvas: the empty stage must not swallow pinches or taps */
+html[data-tier="low"] .stage {
+  touch-action: auto;
+  pointer-events: none;
+}
+
+/* keyboard focus never lands under the fixed chrome: the top bar, the desktop track, the phone stage counter */
+html {
+  scroll-padding-top: calc(var(--header-h) + 8px);
+  scroll-padding-bottom: calc(var(--counter) + 32px + env(safe-area-inset-bottom));
+}
+@media (min-width: 64rem) {
+  html {
+    scroll-padding-bottom: calc(var(--track-h) + 16px);
+  }
+}
+
+/* controls that need JavaScript stay out of a no-JS page (everything they do has a plain link elsewhere) */
+html:not([data-js]) :is(.push-button, .hero-hint, [aria-controls="stage-sheet"]) {
+  display: none;
+}

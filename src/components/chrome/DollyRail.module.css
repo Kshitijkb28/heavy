@@ -1,0 +1,128 @@
+.rail {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: none;
+  height: calc(var(--track-h) + env(safe-area-inset-bottom));
+  padding: 0 max(var(--gutter), env(safe-area-inset-right)) env(safe-area-inset-bottom) max(var(--gutter), env(safe-area-inset-left));
+  /* opaque under the station labels (bright set pieces such as the tube ladder pass behind the track) */
+  background: linear-gradient(to top, rgba(5, 5, 7, 0.97) 0%, rgba(5, 5, 7, 0.9) 55%, rgba(5, 5, 7, 0) 100%);
+  pointer-events: none;
+  --rail-p: 0;
+}
+@media (min-width: 64rem) {
+  .rail {
+    display: block;
+  }
+}
+/* room at both ends for the centred HOME / CONTACT labels */
+.inner {
+  position: relative;
+  height: var(--track-h);
+  margin: 0 64px;
+}
+.track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 18px;
+  height: 1px;
+  background: var(--steel);
+  container-type: inline-size;
+}
+/* the travelled track, faintly lit behind the dolly */
+.track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 1px;
+  width: calc(var(--rail-p) * 100%);
+  background: rgba(255, 51, 85, 0.45);
+}
+.marker {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 2px;
+  height: 14px;
+  margin-left: -1px;
+  background: var(--signal);
+  transform: translate3d(calc(var(--rail-p) * 100cqi), -50%, 0);
+  box-shadow:
+    0 0 calc(6px + 18px * var(--glint)) rgb(255 51 85 / calc(0.6 + 0.4 * var(--glint))),
+    0 0 calc(40px * var(--glint)) calc(2px * var(--glint)) rgb(255 51 85 / calc(0.5 * var(--glint)));
+}
+/* the beacon pass: the marker flashes white-hot for the length of the glint */
+.marker::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background: #fff;
+  opacity: var(--glint);
+}
+@supports not (width: 1cqi) {
+  .marker {
+    left: calc(var(--rail-p) * 100%);
+    transform: translate3d(0, -50%, 0);
+  }
+}
+.stations {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.station {
+  position: absolute;
+  top: 0;
+  left: calc(var(--i) * 100%);
+  transform: translateX(-50%);
+}
+.link {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  height: var(--track-h);
+  padding: 14px 10px 0;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--dur-1) ease;
+}
+.tick {
+  display: block;
+  width: 1px;
+  height: 9px;
+  background: var(--steel);
+  transition:
+    background-color var(--dur-1) ease,
+    box-shadow var(--dur-1) ease;
+}
+.link[aria-current] {
+  color: var(--mercury);
+}
+.link[aria-current] .tick {
+  height: 11px;
+  margin-top: -1px;
+  background: var(--mercury);
+  box-shadow: 0 0 8px rgba(215, 230, 255, 0.7);
+}
+@media (hover: hover) {
+  .link:hover {
+    color: var(--text);
+  }
+  .link:hover .tick {
+    background: var(--text);
+  }
+}

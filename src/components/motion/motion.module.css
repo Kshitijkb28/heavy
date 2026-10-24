@@ -1,0 +1,12 @@
+/* U7 — SplitText pieces. Lines are block-level spans; a mask (body text only) clips the 12 px drop so each line lands
+   from behind the one above it. Pieces exist only while a drop plays; the original markup is restored afterwards. */
+.line {
+  display: block;
+}
+.mask {
+  overflow: clip;
+}
+.word,
+.char {
+  display: inline-block;
+}

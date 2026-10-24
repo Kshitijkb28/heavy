@@ -1,0 +1,53 @@
+.bar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: calc(var(--header-h) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(var(--gutter), env(safe-area-inset-right)) 0 max(var(--gutter), env(safe-area-inset-left));
+  /* opaque behind the bar's own text (scrolled copy never reads through the labels), fading out below it */
+  background: linear-gradient(to bottom, rgba(5, 5, 7, 0.97) 0%, rgba(5, 5, 7, 0.93) 58%, rgba(5, 5, 7, 0) 100%);
+  /* a scrim, not a bar: pointer events fall through to the stage except on the links */
+  pointer-events: none;
+}
+.link {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap);
+  padding: 0 6px;
+  margin: 0 -6px;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--dur-1) ease;
+}
+.lamp {
+  width: 6px;
+  height: 6px;
+  background: var(--signal);
+  box-shadow: 0 0 10px var(--signal);
+  opacity: calc(0.55 + 0.45 * var(--glint));
+}
+.resume {
+  gap: 6px;
+}
+.arrow {
+  color: var(--muted);
+  transition:
+    transform var(--dur-1) var(--ease-out),
+    color var(--dur-1) ease;
+}
+@media (hover: hover) {
+  .link:hover {
+    color: var(--mercury);
+  }
+  .resume:hover .arrow {
+    color: var(--mercury);
+    transform: translate(1px, -1px);
+  }
+}

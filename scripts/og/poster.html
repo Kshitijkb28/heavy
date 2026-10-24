@@ -1,0 +1,312 @@
+<!doctype html>
+<!--
+  The share poster (public/og.png 1200×630) and the icons (src/app/icon.png 512, apple-icon.png 180), rendered by
+  scripts/make-og.mjs in the system Chrome. Pure HTML/CSS in the Night Rig palette: the name in Anton under the cold
+  key-light pool, mirrored in the wet floor, a red beacon blade raking across, grain. Placeholders ({{…}}) are filled by
+  the script from src/data/resume.ts; the Anton face arrives as a data URI; `html[data-variant]` selects og | icon | apple.
+-->
+<html lang="en" data-variant="og">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      @font-face {
+        font-family: "Anton";
+        src: url("{{ANTON_DATA_URI}}") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+      }
+      :root {
+        --void: #050507;
+        --floor: #0b0c10;
+        --steel: #596270;
+        --text: #e8ecf2;
+        --muted: #9aa3af;
+        --mercury: #d7e6ff;
+        --signal: #ff3355;
+        --signal-deep: #7a0f23;
+        --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--void);
+      }
+      .stage {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background: var(--void);
+        font-family: "Anton", Impact, sans-serif;
+      }
+      .layer {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      /* the wet floor: horizon at --horizon, darkening toward the viewer, with the pool's reflection */
+      .floor {
+        top: var(--horizon);
+        background: linear-gradient(180deg, rgba(89, 98, 112, 0.16) 0, rgba(11, 12, 16, 0.94) 4%, var(--floor) 30%, var(--void) 100%);
+      }
+      .floor::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(89, 98, 112, 0.5) 30%, rgba(215, 230, 255, 0.6) 50%, rgba(89, 98, 112, 0.5) 70%, transparent);
+      }
+      .floor::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(ellipse 38% 70% at 50% 0%, rgba(215, 230, 255, 0.17), rgba(215, 230, 255, 0.04) 46%, rgba(215, 230, 255, 0) 76%);
+      }
+      /* the key light: a wedge of cold light from above the rail */
+      .cone {
+        background: conic-gradient(from 164deg at 50% -12%, transparent 0deg, rgba(215, 230, 255, 0.05) 10deg, rgba(215, 230, 255, 0.12) 16deg, rgba(215, 230, 255, 0.05) 22deg, transparent 32deg);
+        -webkit-mask-image: linear-gradient(180deg, #000, rgba(0, 0, 0, 0.8) 55%, rgba(0, 0, 0, 0.2) 75%, transparent 88%);
+        mask-image: linear-gradient(180deg, #000, rgba(0, 0, 0, 0.8) 55%, rgba(0, 0, 0, 0.2) 75%, transparent 88%);
+      }
+      .pool {
+        background:
+          radial-gradient(ellipse 42% 46% at 50% 44%, rgba(215, 230, 255, 0.22), rgba(215, 230, 255, 0.07) 44%, rgba(215, 230, 255, 0) 72%),
+          radial-gradient(ellipse 16% 8% at 50% 0%, rgba(232, 236, 242, 0.16), rgba(232, 236, 242, 0) 100%);
+      }
+      /* the beacon: deep red glow on the left and one red blade raking across the letters */
+      .beacon {
+        background: radial-gradient(circle 34vmin at 6% 46%, rgba(122, 15, 35, 0.62), rgba(122, 15, 35, 0.24) 40%, rgba(122, 15, 35, 0) 100%);
+      }
+      .blade {
+        left: -20%;
+        top: -40%;
+        width: 140%;
+        height: 180%;
+        background: conic-gradient(from 83deg at 8% 50%, transparent 0deg, rgba(255, 51, 85, 0.16) 2.5deg, rgba(255, 51, 85, 0.06) 5deg, transparent 8deg);
+        mix-blend-mode: screen;
+      }
+      /* the rail and the chains */
+      .rail {
+        position: absolute;
+        left: 50%;
+        top: var(--rail);
+        width: var(--rail-w);
+        height: 2px;
+        transform: translateX(-50%);
+        background: linear-gradient(90deg, transparent, var(--steel) 12%, #8a93a0 50%, var(--steel) 88%, transparent);
+      }
+      .chains {
+        position: absolute;
+        left: 50%;
+        top: var(--rail);
+        width: var(--chains-w);
+        height: var(--chain-h);
+        transform: translateX(-50%);
+        display: flex;
+        justify-content: space-between;
+        padding: 0 var(--chain-pad);
+      }
+      .chains i {
+        display: block;
+        width: 2px;
+        height: 100%;
+        background: repeating-linear-gradient(180deg, #7f8794 0 5px, #2a2d34 5px 8px);
+        opacity: 0.85;
+      }
+      /* the name: cast under the key light (lit top edge, darker base), mirrored in the floor */
+      .name {
+        position: absolute;
+        left: 50%;
+        top: var(--name-top);
+        transform: translateX(-50%);
+        text-align: center;
+        font-size: var(--name-size);
+        line-height: 0.86;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        font-kerning: none;
+        white-space: nowrap;
+        color: var(--mercury);
+        background: linear-gradient(180deg, #ffffff 0%, #e9f0ff 22%, var(--mercury) 55%, #aebdd6 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 3px 0 #11141b) drop-shadow(0 22px 34px rgba(0, 0, 0, 0.75));
+      }
+      .name span {
+        display: block;
+      }
+      /* mirrored about its own centre, placed just under the horizon: the lower line reflects first, fading downward
+         (the mask is in local, i.e. flipped, space: strong at the local bottom) */
+      .reflection {
+        position: absolute;
+        left: 50%;
+        top: calc(var(--horizon) + 2px);
+        transform: translateX(-50%) scaleY(-1);
+        transform-origin: 50% 50%;
+        text-align: center;
+        font-size: var(--name-size);
+        line-height: 0.86;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        font-kerning: none;
+        white-space: nowrap;
+        color: rgba(215, 230, 255, 0.3);
+        -webkit-mask-image: linear-gradient(0deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.5) 30%, rgba(0, 0, 0, 0.12) 62%, transparent 100%);
+        mask-image: linear-gradient(0deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.5) 30%, rgba(0, 0, 0, 0.12) 62%, transparent 100%);
+        filter: blur(1.4px);
+      }
+      /* the icon mark: one iron initial */
+      .mark {
+        display: none;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        font-size: var(--mark-size);
+        line-height: 1;
+        letter-spacing: 0;
+        text-transform: uppercase;
+        font-kerning: none;
+        background: linear-gradient(180deg, #ffffff 0%, #e9f0ff 22%, var(--mercury) 55%, #aebdd6 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 1.5vmin 0 #11141b) drop-shadow(0 6vmin 8vmin rgba(0, 0, 0, 0.7));
+      }
+      .reflection span {
+        display: block;
+      }
+      .eyebrow,
+      .site {
+        position: absolute;
+        font-family: var(--mono);
+        font-size: 19px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .eyebrow {
+        left: 56px;
+        top: 50px;
+        color: var(--signal);
+      }
+      .eyebrow::before {
+        content: "";
+        display: inline-block;
+        width: 28px;
+        height: 2px;
+        margin: 0 14px 6px 0;
+        background: var(--signal);
+        vertical-align: middle;
+      }
+      .site {
+        right: 56px;
+        bottom: 44px;
+        color: var(--muted);
+      }
+      .grain {
+        opacity: 0.05;
+        mix-blend-mode: screen;
+        -webkit-mask-image: radial-gradient(ellipse 46% 60% at 50% 40%, #000, rgba(0, 0, 0, 0.5) 50%, transparent 100%);
+        mask-image: radial-gradient(ellipse 46% 60% at 50% 40%, #000, rgba(0, 0, 0, 0.5) 50%, transparent 100%);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        background-size: 180px 180px;
+      }
+
+      /* ---- og 1200 × 630 ---- */
+      html[data-variant="og"] .stage {
+        --horizon: 74.5%;
+        --rail: 92px;
+        --rail-w: 980px;
+        --chains-w: 760px;
+        --chain-pad: 36px;
+        --chain-h: 44px;
+        --name-top: 124px;
+        --name-size: 172px;
+      }
+
+      /* ---- icons (square): one iron initial on a chain ---- */
+      html[data-variant="icon"] .stage,
+      html[data-variant="apple"] .stage {
+        --horizon: 84%;
+        --rail: 7%;
+        --rail-w: 70%;
+        --chains-w: 16%;
+        --chain-pad: 0;
+        --chain-h: 12%;
+        --mark-size: 88vmin;
+      }
+      html[data-variant="icon"] .mark,
+      html[data-variant="apple"] .mark {
+        display: block;
+        top: 53%;
+      }
+      html[data-variant="icon"] .name,
+      html[data-variant="apple"] .name,
+      html[data-variant="icon"] .grain,
+      html[data-variant="apple"] .grain {
+        display: none;
+      }
+      html[data-variant="icon"] .eyebrow,
+      html[data-variant="icon"] .site,
+      html[data-variant="apple"] .eyebrow,
+      html[data-variant="apple"] .site,
+      html[data-variant="icon"] .reflection,
+      html[data-variant="apple"] .reflection {
+        display: none;
+      }
+      html[data-variant="icon"] .chains,
+      html[data-variant="apple"] .chains {
+        justify-content: center;
+      }
+      html[data-variant="icon"] .chains i,
+      html[data-variant="apple"] .chains i {
+        width: 1.2vmin;
+        background: repeating-linear-gradient(180deg, #7f8794 0 2.4vmin, #2a2d34 2.4vmin 3.6vmin);
+      }
+      html[data-variant="icon"] .chains i + i,
+      html[data-variant="apple"] .chains i + i {
+        display: none;
+      }
+      html[data-variant="icon"] .rail,
+      html[data-variant="apple"] .rail {
+        height: 1vmin;
+      }
+      html[data-variant="icon"] .beacon,
+      html[data-variant="apple"] .beacon {
+        background: radial-gradient(circle 46vmin at 0% 55%, rgba(122, 15, 35, 0.7), rgba(122, 15, 35, 0.26) 40%, rgba(122, 15, 35, 0) 100%);
+      }
+      html[data-variant="icon"] .pool,
+      html[data-variant="apple"] .pool {
+        background: radial-gradient(ellipse 60% 52% at 50% 46%, rgba(215, 230, 255, 0.24), rgba(215, 230, 255, 0.08) 44%, rgba(215, 230, 255, 0) 74%);
+      }
+      /* iOS masks the corners: pull the glyph in a touch */
+      html[data-variant="apple"] .stage {
+        --mark-size: 78vmin;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <div class="layer floor"></div>
+      <div class="layer cone"></div>
+      <div class="layer pool"></div>
+      <div class="layer beacon"></div>
+      <div class="layer blade"></div>
+      <div class="rail"></div>
+      <div class="chains"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="reflection" aria-hidden="true"><span>{{FIRST}}</span><span>{{LAST}}</span></div>
+      <h1 class="name"><span>{{FIRST}}</span><span>{{LAST}}</span></h1>
+      <div class="mark" aria-hidden="true">{{INITIAL}}</div>
+      <p class="eyebrow">{{EYEBROW}}</p>
+      <p class="site">{{SITE}}</p>
+      <div class="layer grain"></div>
+    </div>
+  </body>
+</html>

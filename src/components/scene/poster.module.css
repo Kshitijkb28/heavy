@@ -1,0 +1,131 @@
+/* The CSS poster: a black soundstage painted with gradients only. Static layers (one composite), the beacon sweep is
+   the single animation and runs only under full motion. Mounted after the canvas, under `.page`. */
+.poster {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--void);
+  contain: strict;
+  transition:
+    opacity 600ms var(--ease-out),
+    visibility 0s linear 0s;
+}
+.poster[data-state="off"] {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 600ms var(--ease-out),
+    visibility 0s linear 600ms;
+}
+
+/* wet concrete from the horizon down, darkening toward the viewer, with the pool's reflection */
+.floor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 62%;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(89, 98, 112, 0.14) 0, rgba(11, 12, 16, 0.92) 5%, var(--floor) 32%, var(--void) 100%);
+}
+.floor::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(89, 98, 112, 0.42) 32%, rgba(215, 230, 255, 0.55) 50%, rgba(89, 98, 112, 0.42) 68%, transparent);
+}
+.floor::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 34% 58% at 50% 0%, rgba(215, 230, 255, 0.17), rgba(215, 230, 255, 0.045) 46%, rgba(215, 230, 255, 0) 76%);
+}
+
+/* the key light: a 20° wedge of cold light from a point above the rail, soft-edged by the conic falloff, fading with height */
+.cone {
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(from 165deg at 50% -9%, transparent 0deg, rgba(215, 230, 255, 0.045) 9deg, rgba(215, 230, 255, 0.11) 15deg, rgba(215, 230, 255, 0.045) 21deg, transparent 30deg);
+  mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.75) 50%, rgba(0, 0, 0, 0.25) 70%, transparent 84%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.75) 50%, rgba(0, 0, 0, 0.25) 70%, transparent 84%);
+}
+
+/* the mercury pool where the name hangs */
+.pool {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 62%;
+  background:
+    radial-gradient(ellipse 40% 48% at 50% 46%, rgba(215, 230, 255, 0.24), rgba(215, 230, 255, 0.085) 42%, rgba(215, 230, 255, 0) 72%),
+    radial-gradient(ellipse 18% 10% at 50% 2%, rgba(232, 236, 242, 0.14), rgba(232, 236, 242, 0) 100%);
+}
+
+/* the beacon: a deep-red glow on the left, swept by a thin red blade once every 9 s */
+.beacon {
+  position: absolute;
+  left: -12%;
+  top: 24%;
+  width: 64vmin;
+  height: 64vmin;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(122, 15, 35, 0.58), rgba(122, 15, 35, 0.22) 36%, rgba(122, 15, 35, 0) 66%);
+}
+.sweep {
+  position: absolute;
+  inset: -45%;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg, rgba(255, 51, 85, 0.2) 5deg, rgba(255, 51, 85, 0.05) 10deg, transparent 17deg);
+  mix-blend-mode: screen;
+  transform-origin: 50% 50%;
+  animation: sweep 9s linear infinite;
+}
+@keyframes sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+html[data-motion="calm"] .sweep,
+html[data-tier="low"] .sweep {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sweep {
+    animation: none;
+  }
+}
+
+/* dust in the light: fine grain, screened on */
+.grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.055;
+  mix-blend-mode: screen;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+/* phones: the letters live in the top 55svh, the floor begins under them */
+@media (max-width: 63.99rem) {
+  .floor {
+    top: 55svh;
+  }
+  .pool {
+    height: 55svh;
+    background:
+      radial-gradient(ellipse 58% 44% at 50% 52%, rgba(215, 230, 255, 0.2), rgba(215, 230, 255, 0.075) 44%, rgba(215, 230, 255, 0) 74%),
+      radial-gradient(ellipse 30% 9% at 50% 2%, rgba(232, 236, 242, 0.14), rgba(232, 236, 242, 0) 100%);
+  }
+  .cone {
+    background: conic-gradient(from 165deg at 50% -9%, transparent 0deg, rgba(215, 230, 255, 0.05) 8deg, rgba(215, 230, 255, 0.11) 15deg, rgba(215, 230, 255, 0.05) 22deg, transparent 30deg);
+  }
+  .beacon {
+    left: -30%;
+    top: 18%;
+    width: 90vmin;
+    height: 90vmin;
+  }
+}
