@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TIER_CONFIGS, type TierConfig } from "./contracts";
-import { FRAME_GUARD_DEFAULTS, FrameGuardCore, ladderPath, nextStep, resolveTierConfig, sameConfig } from "./tier";
+import { configAfterSteps, FRAME_GUARD_DEFAULTS, FrameGuardCore, ladderPath, nextStep, resolveTierConfig, sameConfig } from "./tier";
 
 describe("resolveTierConfig", () => {
   it("caps the pixel ratio instead of targeting it", () => {
@@ -81,6 +81,13 @@ describe("ladder", () => {
     expect(sameConfig(a, { ...a })).toBe(true);
     expect(sameConfig(a, { ...a, dpr: 1.5 })).toBe(false);
   });
+  it("replays a number of steps from the base (the frame guard's give-back)", () => {
+    const high = resolveTierConfig("high", { devicePixelRatio: 2, viewportWidth: 1440 });
+    const path = ladderPath(high);
+    expect(configAfterSteps(high, 0)).toBe(high);
+    for (let n = 1; n <= path.length; n++) expect(configAfterSteps(high, n)).toEqual(path[n - 1].config);
+    expect(configAfterSteps(high, path.length + 3)).toEqual(path.at(-1)?.config);
+  });
   it("has nothing below low", () => {
     expect(nextStep(TIER_CONFIGS.low)).toBeNull();
     expect(ladderPath(TIER_CONFIGS.low)).toEqual([]);
@@ -98,21 +105,62 @@ function run(core: FrameGuardCore, from: number, dt: number, frames: number): nu
   return hits;
 }
 
+/**
+ * Like `run`, but each step changes the frame time: frames are `dts[n]` ms long after `n` steps (the last entry holds).
+ * From `finalAt` steps on, the next rung would be the poster. Runs for `ms` of page time.
+ */
+function runSteps(core: FrameGuardCore, dts: number[], ms: number, finalAt = Infinity): number[] {
+  const hits: number[] = [];
+  let now = 0;
+  while (now < ms) {
+    now += dts[Math.min(hits.length, dts.length - 1)];
+    if (core.sample(now, hits.length >= finalAt)) hits.push(now);
+  }
+  return hits;
+}
+
 describe("FrameGuardCore", () => {
   it("never demotes a steady 60 fps", () => {
     const core = new FrameGuardCore(0);
     expect(run(core, 0, 16.7, 1200)).toEqual([]);
     expect(core.mean).toBeCloseTo(16.7, 5);
   });
-  it("demotes a throttled page within 3 s of the first judged frame, then waits out the grace period", () => {
+  it("demotes a slow page within 3 s of the first judged frame, then steps on after the grace period while steps pay off", () => {
     const core = new FrameGuardCore(0);
-    const hits = run(core, 0, 36, 400);
-    expect(hits.length).toBeGreaterThanOrEqual(2);
+    const hits = runSteps(core, [36, 30, 25, 16.7], 30000);
+    expect(hits.length).toBe(3);
     const firstJudged = FRAME_GUARD_DEFAULTS.warmupMs;
     expect(hits[0] - firstJudged).toBeLessThanOrEqual(3000);
     expect(hits[0] - firstJudged).toBeGreaterThanOrEqual(FRAME_GUARD_DEFAULTS.sustainMs);
-    const gap = hits[1] - hits[0];
-    expect(gap).toBeGreaterThanOrEqual(FRAME_GUARD_DEFAULTS.graceMs + FRAME_GUARD_DEFAULTS.sustainMs);
+    expect(hits[1] - hits[0]).toBeGreaterThanOrEqual(FRAME_GUARD_DEFAULTS.graceMs + FRAME_GUARD_DEFAULTS.sustainMs);
+    expect(core.holding).toBe(false);
+  });
+  it("holds at a browser frame cap (Energy Saver, Low Power Mode: 30 fps): the step that bought nothing is given back", () => {
+    const core = new FrameGuardCore(0);
+    expect(run(core, 0, 1000 / 30, 1800)).toHaveLength(1); // one minute at 30 fps: one step, never the poster
+    expect(core.holding).toBe(true);
+    expect(core.takeUndo()).toBe(true);
+    expect(core.takeUndo()).toBe(false);
+  });
+  it("never trades the 3D for the poster above ~22 fps, even while steps pay off", () => {
+    const core = new FrameGuardCore(0);
+    const hits = runSteps(core, [40, 34, 30], 60000, 2);
+    expect(hits).toHaveLength(2);
+    expect(core.holding).toBe(true);
+    expect(core.takeUndo()).toBe(false); // the last step did help: it stays
+  });
+  it("keeps stepping below the floor, gain or not, so a crawling page still reaches the poster", () => {
+    const core = new FrameGuardCore(0, { warmupMs: 0 });
+    expect(runSteps(core, [100], 40000, 2).length).toBeGreaterThanOrEqual(4);
+    expect(core.holding).toBe(false);
+  });
+  it("once holding, still steps when the frame rate collapses below the floor", () => {
+    const core = new FrameGuardCore(0);
+    let hits = run(core, 0, 1000 / 30, 600);
+    expect(hits).toHaveLength(1);
+    expect(core.holding).toBe(true);
+    hits = run(core, 20000, 80, 100);
+    expect(hits.length).toBeGreaterThanOrEqual(1);
   });
   it("ignores hitches: one long frame among fast ones is neither sampled nor sustained", () => {
     const core = new FrameGuardCore(0);

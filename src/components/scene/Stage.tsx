@@ -8,9 +8,9 @@
  * poster instead of breaking the page.
  */
 import dynamic from "next/dynamic";
-import { Component, startTransition, useEffect, useState, type ReactNode } from "react";
+import { Component, startTransition, useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import type { Tier } from "@/lib/contracts";
-import { emitScene } from "@/lib/registry";
+import { emitScene, onScene } from "@/lib/registry";
 import { useUI } from "@/store/ui";
 import { Poster } from "./Poster";
 
@@ -54,6 +54,41 @@ function isSceneTier(tier: Tier | null): tier is "high" | "mid" {
   return tier === "high" || tier === "mid";
 }
 
+const noopSubscribe = () => () => {};
+const readDebugFlag = (): boolean => new URLSearchParams(window.location.search).get("debug") === "stats";
+const readDebugFlagOnServer = (): boolean => false;
+const posterDebugStyle: CSSProperties = {
+  position: "fixed",
+  top: "calc(var(--header-h, 64px) + 8px)",
+  left: "max(8px, env(safe-area-inset-left))",
+  zIndex: 80,
+  margin: 0,
+  padding: "8px 10px",
+  pointerEvents: "none",
+  font: "11px/1.5 var(--font-geist-mono), ui-monospace, monospace",
+  color: "var(--text, #e8ecf2)",
+  background: "rgba(5, 5, 7, 0.82)",
+  whiteSpace: "pre-wrap",
+};
+
+/**
+ * `?debug=stats` when there is no scene to carry the overlay (poster tier, or a scene that fell back): the tier, why it
+ * was chosen and why the poster came up, so a visitor who only gets the poster can say why. No three.js in this chunk.
+ */
+function PosterDebug({ tier }: { tier: Tier | null }) {
+  const on = useSyncExternalStore(noopSubscribe, readDebugFlag, readDebugFlagOnServer);
+  const poster = useUI((s) => s.poster);
+  const [fallback, setFallback] = useState<string | null>(null);
+  useEffect(() => onScene("poster", (detail) => setFallback(String((detail as { reason?: string } | undefined)?.reason ?? "unknown"))), []);
+  if (!on || !tier || (isSceneTier(tier) && !poster)) return null;
+  const reason = document.documentElement.dataset.tierReason ?? "?";
+  return (
+    <pre style={posterDebugStyle} aria-hidden="true" data-debug="tier">
+      {`HEAVY ${tier} (${reason})${fallback ? `   poster: ${fallback}` : ""}`}
+    </pre>
+  );
+}
+
 export function Stage() {
   const tier = useUI((s) => s.tier);
   const [requested, setRequested] = useState(false);
@@ -85,6 +120,7 @@ export function Stage() {
         ) : null}
       </div>
       <Poster />
+      <PosterDebug tier={tier} />
     </>
   );
 }

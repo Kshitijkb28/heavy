@@ -8,34 +8,52 @@ import { TIER_CONFIGS, type Tier, type TierConfig } from "./contracts";
  * `?tier=high|mid|low` forces a tier for testing. U8 adds the runtime ladder (step down only) in `useFrameGuard.ts`.
  */
 export function detectTier(): Tier {
-  if (typeof window === "undefined") return "mid";
-  const forced = new URLSearchParams(window.location.search).get("tier");
-  if (forced === "high" || forced === "mid" || forced === "low") return forced;
-
-  const nav = navigator as Navigator & { connection?: { saveData?: boolean }; deviceMemory?: number };
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return "low";
-  if (nav.connection?.saveData) return "low";
-  if ((nav.deviceMemory ?? 8) <= 2) return "low";
-  if (!probeWebGL2()) return "low";
-
-  const coarse = window.matchMedia("(pointer: coarse)").matches && !window.matchMedia("(pointer: fine)").matches;
-  if (coarse) return "mid";
-  if ((nav.deviceMemory ?? 8) <= 4) return "mid";
-  if ((navigator.hardwareConcurrency ?? 8) < 6) return "mid";
-  return "high";
+  return detectTierWithReason().tier;
 }
 
-/** Hardware WebGL2 with usable texture sizes; software renderers (SwiftShader) count as unsupported. */
-function probeWebGL2(): boolean {
+/**
+ * Why `detectTier` chose its tier; Providers writes it to `html[data-tier-reason]` and the `?debug=stats` line shows it,
+ * so a visitor who only gets the poster can say why. `software-webgl`: WebGL2 runs, but on the CPU (graphics
+ * acceleration off in the browser, or the GPU blocklisted); `no-webgl2`: none at all (or blocked for the site).
+ */
+export type TierReason = "forced" | "reduced-motion" | "save-data" | "low-memory" | "software-webgl" | "no-webgl2" | "touch" | "memory" | "cores" | "capable";
+
+export function detectTierWithReason(): { tier: Tier; reason: TierReason } {
+  if (typeof window === "undefined") return { tier: "mid", reason: "capable" };
+  const forced = new URLSearchParams(window.location.search).get("tier");
+  if (forced === "high" || forced === "mid" || forced === "low") return { tier: forced, reason: "forced" };
+
+  const nav = navigator as Navigator & { connection?: { saveData?: boolean }; deviceMemory?: number };
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return { tier: "low", reason: "reduced-motion" };
+  if (nav.connection?.saveData) return { tier: "low", reason: "save-data" };
+  if ((nav.deviceMemory ?? 8) <= 2) return { tier: "low", reason: "low-memory" };
+  const webgl = probeWebGL2();
+  if (webgl !== "hardware") return { tier: "low", reason: webgl === "software" ? "software-webgl" : "no-webgl2" };
+
+  const coarse = window.matchMedia("(pointer: coarse)").matches && !window.matchMedia("(pointer: fine)").matches;
+  if (coarse) return { tier: "mid", reason: "touch" };
+  if ((nav.deviceMemory ?? 8) <= 4) return { tier: "mid", reason: "memory" };
+  if ((navigator.hardwareConcurrency ?? 8) < 6) return { tier: "mid", reason: "cores" };
+  return { tier: "high", reason: "capable" };
+}
+
+/**
+ * Hardware WebGL2 with usable texture sizes. A software renderer (SwiftShader) reports a major performance caveat and
+ * counts as unsupported; a second, caveat-free context tells it apart from no WebGL2 at all (for the reason only).
+ */
+function probeWebGL2(): "hardware" | "software" | "none" {
   try {
-    const canvas = document.createElement("canvas");
-    const gl = canvas.getContext("webgl2", { failIfMajorPerformanceCaveat: true, powerPreference: "high-performance" });
-    if (!gl) return false;
-    const ok = gl.getParameter(gl.MAX_TEXTURE_SIZE) >= 4096;
-    gl.getExtension("WEBGL_lose_context")?.loseContext();
-    return ok;
+    const gl = document.createElement("canvas").getContext("webgl2", { failIfMajorPerformanceCaveat: true, powerPreference: "high-performance" });
+    if (gl) {
+      const ok = gl.getParameter(gl.MAX_TEXTURE_SIZE) >= 4096;
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+      return ok ? "hardware" : "none";
+    }
+    const soft = document.createElement("canvas").getContext("webgl2");
+    soft?.getExtension("WEBGL_lose_context")?.loseContext();
+    return soft ? "software" : "none";
   } catch {
-    return false;
+    return "none";
   }
 }
 
@@ -129,6 +147,13 @@ export function nextStep(cfg: TierConfig): LadderResult | null {
   return null;
 }
 
+/** The config `count` rungs below `base`: the ladder is deterministic, so this replays the steps taken from it. */
+export function configAfterSteps(base: TierConfig, count: number): TierConfig {
+  let cfg = base;
+  for (let i = 0; i < count; i++) cfg = nextStep(cfg)?.config ?? cfg;
+  return cfg;
+}
+
 /** Every rung from `cfg` down to the poster, in order (for the debug overlay and tests). */
 export function ladderPath(cfg: TierConfig): LadderResult[] {
   const out: LadderResult[] = [];
@@ -160,6 +185,15 @@ export interface FrameGuardOptions {
   minSpanMs: number;
   /** judgement pause after construction: first paint, compiles, the letter drop (ms) */
   warmupMs: number;
+  /**
+   * a step that did not make the mean at least this much faster (fraction) shows the frame rate is not set by what the
+   * stage draws — the browser or the display paces it (Chrome's Energy Saver and iOS Low Power Mode hold pages at
+   * 30 fps; a 30 Hz screen) — so the guard gives that step back and holds instead of stepping on to the poster
+   */
+  minGain: number;
+  /** below this frame rate (mean ms, ≈ 22 fps) the guard steps on even without a gain, and only below it does the last
+   *  rung trade the 3D for the poster */
+  floorMs: number;
 }
 
 export const FRAME_GUARD_DEFAULTS: FrameGuardOptions = {
@@ -171,6 +205,8 @@ export const FRAME_GUARD_DEFAULTS: FrameGuardOptions = {
   minSamples: 20,
   minSpanMs: 500,
   warmupMs: 1000,
+  minGain: 0.1,
+  floorMs: 45,
 };
 
 /**
@@ -186,11 +222,30 @@ export class FrameGuardCore {
   private last = NaN;
   private slowSince = NaN;
   private quietUntil: number;
+  /** the mean that triggered the last step (NaN before the first) */
+  private stepMean = NaN;
+  /** a mean above this is slow: `slowMs`, or `floorMs` once the guard holds */
+  private limit: number;
+  private undoPending = false;
 
   constructor(now: number, options: Partial<FrameGuardOptions> = {}) {
     this.options = { ...FRAME_GUARD_DEFAULTS, ...options };
     this.buffer = new Float64Array(Math.max(1, Math.floor(this.options.window)));
     this.quietUntil = now + this.options.warmupMs;
+    this.limit = this.options.slowMs;
+  }
+
+  /** true once frames proved to be paced by something no rung changes (or only the poster was left): from then on the
+   *  guard only steps below `floorMs` */
+  get holding(): boolean {
+    return this.limit > this.options.slowMs;
+  }
+
+  /** true once (then false) when the guard started holding because its last step bought no speed: give that step back */
+  takeUndo(): boolean {
+    const pending = this.undoPending;
+    this.undoPending = false;
+    return pending;
   }
 
   /** samples in the window */
@@ -214,10 +269,12 @@ export class FrameGuardCore {
   }
 
   /**
-   * Feed one frame (its timestamp in ms). Returns true when a demotion is due; the window is then dropped and the
-   * guard goes quiet for `graceMs`.
+   * Feed one frame (its timestamp in ms); `finalRung` says the next step would be the poster. Returns true when a
+   * demotion is due; the window is then dropped and the guard goes quiet for `graceMs`. A slow spell that a step did
+   * not shorten (by `minGain`), or that only the poster could answer, makes the guard hold instead while the frame rate
+   * stays above the floor.
    */
-  sample(now: number): boolean {
+  sample(now: number, finalRung = false): boolean {
     const dt = now - this.last;
     this.last = now;
     if (!Number.isFinite(dt) || dt <= 0) return false;
@@ -225,14 +282,22 @@ export class FrameGuardCore {
     if (dt > this.options.hitchMs) return false;
     this.push(dt);
     if (this.count < this.options.minSamples && (this.count < 3 || this.sum < this.options.minSpanMs)) return false;
-    if (this.mean <= this.options.slowMs) {
+    if (this.mean <= this.limit) {
       this.slowSince = NaN;
       return false;
     }
     if (Number.isNaN(this.slowSince)) this.slowSince = now;
     if (now - this.slowSince < this.options.sustainMs) return false;
+    const mean = this.mean;
+    const gained = Number.isNaN(this.stepMean) || mean < this.stepMean * (1 - this.options.minGain);
     this.clear();
     this.slowSince = NaN;
+    if (mean <= this.options.floorMs && (!gained || finalRung)) {
+      this.undoPending = !gained;
+      this.limit = this.options.floorMs;
+      return false;
+    }
+    this.stepMean = mean;
     this.quietUntil = now + this.options.graceMs;
     return true;
   }

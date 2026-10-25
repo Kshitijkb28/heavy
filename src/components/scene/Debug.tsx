@@ -32,6 +32,8 @@ export interface HeavyStats {
   t: number;
   tier: Tier;
   steps: LadderStep[];
+  /** the frame guard settled because the browser or the display paces the frames (no further steps above ~22 fps) */
+  guardHolding: boolean;
   post: boolean;
   shadows: boolean;
   reflections: boolean;
@@ -109,6 +111,7 @@ export function heavyStats(): HeavyStats {
     t: sceneState.t,
     tier: cfg?.tier ?? sceneState.tier,
     steps: q.steps,
+    guardHolding: q.holding,
     post: cfg?.post ?? false,
     shadows: cfg?.shadows ?? false,
     reflections: cfg?.reflections ?? false,
@@ -210,8 +213,9 @@ const yn = (b: boolean): string => (b ? "on" : "off");
 function lines(s: HeavyStats): string[] {
   const steps = s.steps.length ? ` ← ${s.steps.join(" → ")}` : "";
   const extras = Object.keys(s).filter((key) => sources.has(key) && key !== "bodies");
+  const reason = document.documentElement.dataset.tierReason ?? "?";
   return [
-    `HEAVY ${s.tier}${steps}`,
+    `HEAVY ${s.tier} (${reason})${steps}${s.guardHolding ? "   guard holds: frame rate set by the browser" : ""}`,
     `fps ${s.fps.toFixed(0).padStart(3)}   frame ${s.frameMs.toFixed(1)} ms`,
     `calls ${s.calls}   tris ${k(s.triangles)}   pts ${k(s.points)}`,
     `geo ${s.geometries}   tex ${s.textures}   prog ${s.programs}`,

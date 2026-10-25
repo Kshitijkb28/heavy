@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
-import { detectTier } from "@/lib/tier";
+import { detectTierWithReason } from "@/lib/tier";
 import { sceneState } from "@/lib/scene-state";
 import { useUI } from "@/store/ui";
 import { SmoothScroll } from "@/components/chrome/SmoothScroll";
@@ -10,14 +10,15 @@ import { ScrollWriter } from "@/components/scene/ScrollWriter";
 
 /**
  * Client root (integrator-owned). Resolves the device tier once after mount (never during render), mirrors it into the
- * store, the scene state and `html[data-tier]`, then composes the unit-owned providers: SmoothScroll (U1, Lenis on fine
- * pointers) and MotionGate (U7, GSAP + the `data-js` reveal gate).
+ * store, the scene state and `html[data-tier]` (with the reason in `html[data-tier-reason]`), then composes the
+ * unit-owned providers: SmoothScroll (U1, Lenis on fine pointers) and MotionGate (U7, GSAP + the `data-js` reveal gate).
  */
 export function Providers({ children }: { children: ReactNode }) {
   const setTier = useUI((s) => s.setTier);
 
   useEffect(() => {
-    const tier = detectTier();
+    const { tier, reason } = detectTierWithReason();
+    document.documentElement.dataset.tierReason = reason;
     sceneState.tier = tier;
     sceneState.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     sceneState.vw = window.innerWidth;
