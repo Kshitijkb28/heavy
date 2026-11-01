@@ -4,7 +4,9 @@
  *
  * t = index + progress, where progress runs 0 → 1 between a section's *anchor* (its top minus `scroll-margin-top`,
  * i.e. where the browser puts it for `#id`) and the next section's anchor. So `/#projects` lands on t = 3 exactly, and
- * the mapping stays continuous even when sections have gaps between them. The last section holds its index.
+ * the mapping stays continuous even when sections have gaps between them. The last section holds its index. A section
+ * with sub-stops (the project cards, `[data-project-stop]`) is split at each one: card i of n reaches the anchor at
+ * t = index + i/n exactly, however uneven the cards are, so the camera frames initial i while card i is read.
  */
 import { SECTION_ORDER, type SectionId } from "@/lib/contracts";
 
@@ -20,6 +22,8 @@ export interface MeasuredSection {
   height: number;
   /** computed `scroll-margin-top` (px) */
   scrollMargin: number;
+  /** document tops of the section's sub-stop blocks, in order (the project cards) */
+  stops?: number[];
 }
 
 export interface SectionSpan extends MeasuredSection {
@@ -29,6 +33,8 @@ export interface SectionSpan extends MeasuredSection {
   anchor: number;
   /** scroll distance from this anchor to the next section's anchor (the section's own height for the last one) */
   span: number;
+  /** scroll positions of the sub-stops, increasing, the first equal to `anchor`; absent for fewer than two */
+  subAnchors?: number[];
 }
 
 export interface ScrollMap {
@@ -53,13 +59,47 @@ export function buildScrollMap(sections: readonly MeasuredSection[]): ScrollMap 
       seen.add(s.id);
       return true;
     })
-    .map((s) => ({ ...s, index: sectionIndex(s.id), anchor: Math.max(0, s.top - (s.scrollMargin || 0)), span: 1 }))
+    .map((s): SectionSpan => ({ ...s, index: sectionIndex(s.id), anchor: Math.max(0, s.top - (s.scrollMargin || 0)), span: 1 }))
     .sort((a, b) => a.index - b.index);
   for (let i = 0; i < ordered.length; i++) {
+    const s = ordered[i];
     const next = ordered[i + 1];
-    ordered[i].span = Math.max(1, next ? next.anchor - ordered[i].anchor : ordered[i].height);
+    s.span = Math.max(1, next ? next.anchor - s.anchor : s.height);
+    if (next && s.stops && s.stops.length > 1) {
+      // card i's anchor, kept strictly inside the section so every piece has a positive length
+      const n = s.stops.length;
+      const sub = [s.anchor];
+      for (let k = 1; k < n; k++) {
+        const room = s.anchor + s.span - (n - k) * 0.5;
+        sub.push(Math.min(room, Math.max(sub[k - 1] + 0.5, s.stops[k] - (s.scrollMargin || 0))));
+      }
+      s.subAnchors = sub;
+    }
   }
   return { spans: ordered };
+}
+
+/** Progress 0 … 1 through span `s` at `scrollY` (piecewise over its sub-stops when it has them). */
+function progressIn(s: SectionSpan, scrollY: number): number {
+  const sub = s.subAnchors;
+  if (!sub) return clamp01((scrollY - s.anchor) / s.span);
+  const n = sub.length;
+  const end = s.anchor + s.span;
+  let k = 0;
+  while (k + 1 < n && sub[k + 1] <= scrollY) k++;
+  const to = k + 1 < n ? sub[k + 1] : end;
+  return clamp01((k + clamp01((scrollY - sub[k]) / Math.max(1e-9, to - sub[k]))) / n);
+}
+
+/** Scroll position at progress `u` (0 … 1) through span `s` (inverse of `progressIn`). */
+function scrollAt(s: SectionSpan, u: number): number {
+  const sub = s.subAnchors;
+  if (!sub) return s.anchor + u * s.span;
+  const n = sub.length;
+  const x = Math.min(Math.max(u * n, 0), n);
+  const k = Math.min(n - 1, Math.floor(x));
+  const to = k + 1 < n ? sub[k + 1] : s.anchor + s.span;
+  return sub[k] + (x - k) * (to - sub[k]);
 }
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -73,8 +113,7 @@ export function scrollToT(map: ScrollMap, scrollY: number): number {
   while (i + 1 < n && spans[i + 1].anchor <= scrollY) i++;
   const s = spans[i];
   if (i === n - 1) return s.index;
-  const u = clamp01((scrollY - s.anchor) / s.span);
-  return s.index + u * (spans[i + 1].index - s.index);
+  return s.index + progressIn(s, scrollY) * (spans[i + 1].index - s.index);
 }
 
 /** Scroll position for a journey parameter (inverse of `scrollToT`; t beyond the last section → its anchor). */
@@ -86,7 +125,7 @@ export function tToScrollY(map: ScrollMap, t: number): number {
   for (let i = 0; i < n - 1; i++) {
     const a = spans[i];
     const b = spans[i + 1];
-    if (t < b.index) return a.anchor + ((t - a.index) / (b.index - a.index)) * a.span;
+    if (t < b.index) return scrollAt(a, (t - a.index) / (b.index - a.index));
   }
   return spans[n - 1].anchor;
 }
@@ -115,7 +154,7 @@ export function nextVelocity(previous: number, deltaPx: number, deltaMs: number)
 /* ----------------------------------------------------------------------------------------------------------------- */
 /* DOM                                                                                                                */
 
-/** Measures every `[data-section]` under `root` (document offsets; forces one layout). Browser only. */
+/** Measures every `[data-section]` under `root` and its `[data-project-stop]` blocks (document offsets; forces one layout). Browser only. */
 export function measureSections(root: ParentNode = document): MeasuredSection[] {
   const out: MeasuredSection[] = [];
   const scrollY = window.scrollY;
@@ -124,7 +163,8 @@ export function measureSections(root: ParentNode = document): MeasuredSection[] 
     if (!isSectionId(id)) continue;
     const rect = el.getBoundingClientRect();
     const margin = parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
-    out.push({ id, top: rect.top + scrollY, height: rect.height, scrollMargin: margin });
+    const stops = [...el.querySelectorAll<HTMLElement>("[data-project-stop]")].map((b) => b.getBoundingClientRect().top + scrollY);
+    out.push({ id, top: rect.top + scrollY, height: rect.height, scrollMargin: margin, ...(stops.length ? { stops } : {}) });
   }
   return out;
 }

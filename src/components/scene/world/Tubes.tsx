@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Stack: five fluorescent tubes stepping down the right wall (z −40 … −48), one per skill group. They flicker on in
- * order as `sceneState.t` runs 3.6 → 4.4 (`tubeLevel`), as one instanced mesh with per-instance emission, one steel
- * housing mesh, one point light for the bank and, without post, five glow sprites.
+ * Stack: fluorescent tubes stepping down the right wall at z −44, one per skill group (`TUBES`). They flicker on in
+ * order as `sceneState.t` crosses `TUBE_WINDOW` (`tubeLevel`), as one instanced mesh with per-instance emission, one
+ * steel housing mesh, one point light for the bank and, without post, one glow sprite per tube.
  */
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
@@ -73,7 +73,7 @@ export function Tubes({ glow }: TubesProps) {
     let sum = 0;
     let dirty = false;
     for (let i = 0; i < COUNT; i++) {
-      const level = tubeLevel(t, i);
+      const level = tubeLevel(t, i, COUNT);
       levels.current[i] = level;
       sum += level;
       const hum = 1 - 0.035 * (0.5 + 0.5 * Math.sin(e * 41 + i * 1.7));

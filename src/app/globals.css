@@ -170,11 +170,17 @@
   touch-action: pan-y pinch-zoom;
 }
 
-/* reveal holds (U7): exist only for JS users with motion on; a safety timer always lets content through */
-html[data-js][data-motion="full"] .hold {
+/* reveal holds (U7): exist only for JS users with motion on; a safety timer always lets content through. Never while
+   the in-page editor is open (`html[data-editing]`): what React re-renders there is shown as it is. */
+html[data-js][data-motion="full"]:not([data-editing]) .hold {
   opacity: 0;
   animation: hold-safety 1ms linear 3s forwards;
 }
+/* the in-page editor: its edit bar takes the top bar's place */
+html[data-editing] [data-topbar] {
+  display: none;
+}
+
 @keyframes hold-safety {
   to {
     opacity: 1;

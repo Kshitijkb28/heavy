@@ -1,6 +1,6 @@
 /**
  * One fixed Rapier body per world shared by everything static (rope anchors, the floor, the walls), so the
- * body budget stays at 15 letters + 3 initials + 1 static = 19 (`TierConfig.maxBodies`). Ref-counted: the
+ * body budget stays at 15 letters + one initial per project (≤ 6) + 1 static ≤ 22 (`TierConfig.maxBodies`). Ref-counted: the
  * last releaser removes it (Rapier removes its colliders and joints with it).
  */
 import type { Collider, ColliderDesc, RigidBody as RapierRigidBody, World } from "@dimforge/rapier3d-compat";

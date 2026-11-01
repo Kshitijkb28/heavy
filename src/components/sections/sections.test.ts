@@ -4,7 +4,12 @@ import { describe, expect, it } from "vitest";
 import Page from "@/app/page";
 import { SECTION_ORDER } from "@/lib/contracts";
 import { NAME_ROWS } from "@/data/derived";
-import { SITE, education, experience, facts, links, profile, projects, sections as sectionMeta, skills, stats } from "@/data/resume";
+import { SITE, content, education, experience, facts, links, profile, projects, sections as sectionMeta, skills, stats } from "@/data/resume";
+import { deriveView } from "@/data/view";
+import { Experience } from "./Experience";
+import { Projects } from "./Projects";
+import { Education } from "./Education";
+import { Contact } from "./Contact";
 
 const decode = (s: string) =>
   s.replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
@@ -57,16 +62,17 @@ describe("sections DOM", () => {
     for (const s of strings) expect(text, s).toContain(s);
   });
 
-  it("lists JavaScript twice in the stack and 17 chips in five indexed rows", () => {
+  it("lists every chip of every skill group (repeats included) in indexed rows", () => {
     const stack = slice("stack", "education");
-    expect(stack.match(/>JavaScript</g)).toHaveLength(2);
-    expect(stack.match(/class="chip"/g)).toHaveLength(17);
-    for (let i = 0; i < 5; i++) expect(stack).toContain(`data-row-index="${i}"`);
+    expect(stack.match(/class="chip"/g)).toHaveLength(skills.reduce((n, g) => n + g.items.length, 0));
+    skills.forEach((_, i) => expect(stack).toContain(`data-row-index="${i}"`));
+    expect(stack).not.toContain(`data-row-index="${skills.length}"`);
     expect(stack).toContain("data-stack-rows");
   });
 
-  it("marks the three project stops and the hero band for the scene", () => {
-    for (let i = 0; i < 3; i++) expect(html).toContain(`data-project-stop="${i}"`);
+  it("marks one stop per project and the hero band for the scene", () => {
+    projects.forEach((_, i) => expect(html).toContain(`data-project-stop="${i}"`));
+    expect(html).not.toContain(`data-project-stop="${projects.length}"`);
     for (const p of projects) expect(html).toContain(`data-project="${p.id}" data-initial="${p.initial}"`);
     expect(html).toContain("data-hero-band");
   });
@@ -83,7 +89,7 @@ describe("sections DOM", () => {
       links.linkedin.href,
       links.github.href,
       links.site.href,
-      profile.now.href,
+      profile.now?.href,
       ...experience.map((j) => j.href),
       ...projects.map((p) => p.href),
       `mailto:${profile.email}`,
@@ -92,12 +98,13 @@ describe("sections DOM", () => {
       "#projects",
       "#hero",
     ];
-    for (const href of hrefs) expect(html, href).toContain(`href="${href}"`);
+    for (const href of hrefs.filter(Boolean)) expect(html, href).toContain(`href="${href}"`);
   });
 
   it("gives every reveal target the hold class and gates nothing in the hero", () => {
     const reveals = [...html.matchAll(/<[a-z0-9]+\b[^>]*data-reveal[^>]*>/g)];
-    expect(reveals.length).toBeGreaterThan(20);
+    // at least the two title parts of the six headed sections; the rest grows with the content
+    expect(reveals.length).toBeGreaterThanOrEqual(12);
     for (const m of reveals) expect(m[0]).toMatch(/class="[^"]*\bhold\b/);
     expect(slice("hero", "about")).not.toMatch(/class="[^"]*\bhold\b/);
   });
@@ -106,5 +113,36 @@ describe("sections DOM", () => {
     expect(html).not.toContain("<time");
     expect(html).toContain("Hold a letter to grab it");
     expect(html).toMatch(/<button type="button" class="push-button[ "]/);
+  });
+});
+
+describe("sections without the optional values", () => {
+  const bare = structuredClone(content);
+  delete (bare.experience[0] as { href?: string }).href;
+  delete (bare.projects[0] as { href?: string }).href;
+  delete (bare.profile as { phone?: string }).phone;
+  delete (bare.education[0] as { score?: string }).score;
+  const view = deriveView(bare);
+  const render = (el: Parameters<typeof renderToStaticMarkup>[0]) => decode(renderToStaticMarkup(el));
+
+  it("names a company without a website as text, not as a link", () => {
+    const html = render(createElement(Experience, { view }));
+    const first = html.slice(html.indexOf(`id="experience-${bare.experience[0].id}"`), html.indexOf("</article>"));
+    expect(first).toContain(bare.experience[0].company);
+    expect(first).not.toContain("<a ");
+  });
+
+  it("shows a project without a website with no domain line and no Visit button", () => {
+    const html = render(createElement(Projects, { view }));
+    const first = html.slice(html.indexOf(`id="project-${bare.projects[0].id}"`), html.indexOf("</article>"));
+    expect(first).toContain(bare.projects[0].name);
+    expect(first).not.toContain("Visit");
+  });
+
+  it("leaves out the phone row and an empty score", () => {
+    expect(render(createElement(Contact, { view }))).not.toContain(">Phone<");
+    const edu = render(createElement(Education, { view }));
+    const start = edu.indexOf(`data-education="${bare.education[0].id}"`);
+    expect(edu.slice(start, edu.indexOf("</li>", start))).not.toContain(">Score<");
   });
 });

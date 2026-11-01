@@ -5,8 +5,9 @@
  *   public/og.png            1200 × 630   (metadata.openGraph / twitter images in src/app/layout.tsx)
  *   src/app/icon.png          512 × 512   (Next `icon` file convention → <link rel="icon">)
  *   src/app/apple-icon.png    180 × 180   (Next `apple-icon` file convention → apple-touch-icon)
- * The icons carry one iron initial. Text comes from src/data/resume.ts (Node strips the types natively); the Anton face from tools/fonts is embedded as a
- * data URI so no file:// font loading is involved. Re-run only when the name, the palette or the layout changes.
+ * The icons carry one iron initial. Text comes from src/data/content.json (the content the in-page editor commits; the
+ * deploy workflow re-runs `--only=og` so the share card follows edits); the Anton face from tools/fonts is embedded as a
+ * data URI so no file:// font loading is involved. `CHROME_PATH` overrides the macOS Chrome (CI: /usr/bin/google-chrome).
  *
  * Usage: node scripts/make-og.mjs [--only=og|icon|apple]   (npm run make:og)
  */
@@ -16,16 +17,12 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const CHROME = process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+/** Metal ANGLE is macOS only; elsewhere Chrome picks its own GL backend. */
+const GPU_ARGS = process.platform === "darwin" ? ["--use-angle=metal", "--ignore-gpu-blocklist"] : [];
 const only = process.argv.find((a) => a.startsWith("--only="))?.slice("--only=".length);
 
-// resume.ts is ESM in a typeless package: keep Node's one-off "reparsing as ES module" notice out of the build log.
-const printers = process.listeners("warning");
-process.removeAllListeners("warning");
-process.on("warning", (w) => {
-  if (w.code !== "MODULE_TYPELESS_PACKAGE_JSON") for (const p of printers) p(w);
-});
-const { profile, links } = await import("../src/data/resume.ts");
+const { profile, links } = JSON.parse(readFileSync(path.join(root, "src/data/content.json"), "utf8"));
 
 const escape = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const font = readFileSync(path.join(root, "tools/fonts/Anton-Regular.ttf")).toString("base64");
@@ -44,7 +41,7 @@ const TARGETS = [
   ["apple", 180, 180, "src/app/apple-icon.png"],
 ].filter(([variant]) => !only || variant === only);
 
-const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: ["--use-angle=metal", "--ignore-gpu-blocklist", "--hide-scrollbars", "--font-render-hinting=none"] });
+const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: [...GPU_ARGS, "--hide-scrollbars", "--font-render-hinting=none"] });
 try {
   for (const [variant, width, height, out] of TARGETS) {
     const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });

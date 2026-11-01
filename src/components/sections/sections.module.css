@@ -357,8 +357,10 @@ a:focus-visible > .arrow {
 }
 .facts {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   margin: 0 0 28px;
+  /* the closing rule belongs to the grid, not to the last two facts, so an odd count closes cleanly too */
+  border-bottom: 1px solid var(--seam);
 }
 .fact {
   padding: 14px 16px 14px 0;
@@ -368,8 +370,9 @@ a:focus-visible > .arrow {
   padding-left: 16px;
   border-left: 1px solid var(--seam);
 }
-.fact:nth-last-child(-n + 2) {
-  border-bottom: 1px solid var(--seam);
+/* an odd count: the last fact takes the whole row */
+.fact:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 .factLabel {
   margin: 0 0 4px;
@@ -381,7 +384,7 @@ a:focus-visible > .arrow {
 }
 .stats {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 20px 16px;
   margin: 0;
   padding: 0;
@@ -418,7 +421,7 @@ a:focus-visible > .arrow {
 
 @media (width >= 40rem) {
   .stats {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .stats > :last-child {
     grid-column: auto;
@@ -879,4 +882,45 @@ a.contactValue:focus-visible {
   .toTop {
     justify-self: end;
   }
+}
+
+/* ---------- any allowed length (src/data/schema.ts LIMITS; the in-page editor writes these) ---------- */
+/* a word longer than its line breaks instead of widening the page; text whose words fit is laid out exactly as before */
+.eyebrow,
+.hook,
+.title,
+.annotation,
+.prose > p,
+.now,
+.bullets > li,
+.factLabel,
+.factValue,
+.statCaption,
+.entryCompany,
+.entryRole,
+.entryMeta,
+.projectTop,
+.projectName,
+.projectDomain,
+.blurb,
+.rowLabel,
+.eduPeriod,
+.eduSchool,
+.eduDegree,
+.eduScore,
+.footerName,
+.footerMeta {
+  overflow-wrap: anywhere;
+}
+/* two-digit indexes stay whole beside a label that has to break */
+.rowIndex,
+.entryIndex {
+  flex: none;
+  overflow-wrap: normal;
+}
+/* footer link labels are buttons (no wrap) everywhere else; a long site label may take two lines here */
+.footerLink {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

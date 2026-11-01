@@ -1,23 +1,25 @@
 import clsx from "clsx";
-import { projects } from "@/data/resume";
-import { EXTERNAL, visitLabel } from "./content";
+import type { ReactNode } from "react";
+import type { SiteView } from "@/data/view";
+import { EXTERNAL, holds, visitLabel } from "./content";
 import { SectionHeading } from "./SectionHeading";
 import styles from "./sections.module.css";
 import { NewTab } from "./NewTab";
 
 /**
- * t = 3 … 3.99. Three stops, one per project, each a full viewport (`[data-project-stop]`) so the sub-stops 3.0 / 3.33
- * / 3.66 land on each card; the iron initials Y, R, S hang in the right half on desktop and above the cards on phones.
+ * t = 3 … 3.99. One stop per project, each a full viewport (`[data-project-stop]`), so the sub-stops 3 + i/n land on
+ * each card; the iron initials hang in the right half on desktop and above the cards on phones.
  */
-export function Projects() {
+export function Projects({ view, reveal = true, action }: { view: SiteView; reveal?: boolean; action?: ReactNode }) {
+  const r = holds(reveal);
   return (
     <section id="projects" data-section="projects" aria-labelledby="projects-title" className={clsx("section", styles.projects, styles.split)}>
       <div className={clsx(styles.colLeft, styles.projectList)}>
-        {projects.map((project, i) => (
+        {view.projects.map((project, i) => (
           <div key={project.id} className={styles.projectBlock} data-project-stop={i}>
             {i === 0 ? (
               <div className={clsx("ink-well", styles.projectsHead)}>
-                <SectionHeading id="projects" />
+                <SectionHeading id="projects" meta={view.sections.projects} reveal={reveal} action={action} />
               </div>
             ) : null}
             <article id={`project-${project.id}`} className={clsx("card", styles.project)} data-project={project.id} data-initial={project.initial}>
@@ -25,34 +27,36 @@ export function Projects() {
                 <span>{project.index}</span>
                 <span>{project.period}</span>
               </p>
-              <h3 className={clsx("hold", styles.projectName)} data-reveal="">
+              <h3 className={clsx(r.cls, styles.projectName)} {...r.at()}>
                 {project.name}
               </h3>
-              <p className={clsx("mono", styles.projectDomain)}>{project.domain}</p>
-              <p className={clsx("hold", styles.blurb)} data-reveal="">
+              {project.domain ? <p className={clsx("mono", styles.projectDomain)}>{project.domain}</p> : null}
+              <p className={clsx(r.cls, styles.blurb)} {...r.at()}>
                 {project.blurb}
               </p>
               <ul className={styles.bullets}>
-                {project.bullets.map((bullet) => (
-                  <li key={bullet} className="hold" data-reveal="">
+                {project.bullets.map((bullet, j) => (
+                  <li key={j} className={r.cls} {...r.at()}>
                     {bullet}
                   </li>
                 ))}
               </ul>
               <ul className={styles.tags} aria-label={`${project.name} tools`}>
-                {project.tags.map((tag) => (
-                  <li key={tag} className="chip">
+                {project.tags.map((tag, j) => (
+                  <li key={j} className="chip">
                     {tag}
                   </li>
                 ))}
               </ul>
-              <a href={project.href} className={clsx("btn btn--ghost", styles.visit)} {...EXTERNAL}>
-                {visitLabel(project.domain)}
-                <span aria-hidden="true" className={styles.arrow}>
-                  ↗
-                </span>
-                <NewTab />
-              </a>
+              {project.href ? (
+                <a href={project.href} className={clsx("btn btn--ghost", styles.visit)} {...EXTERNAL}>
+                  {visitLabel(project.domain ?? project.name)}
+                  <span aria-hidden="true" className={styles.arrow}>
+                    ↗
+                  </span>
+                  <NewTab />
+                </a>
+              ) : null}
             </article>
           </div>
         ))}

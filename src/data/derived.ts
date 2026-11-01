@@ -1,6 +1,9 @@
 import { PLACE_LABELS, SECTION_ORDER, type SectionId } from "@/lib/contracts";
 import { withBase } from "@/lib/base";
-import { links, profile, sections as resumeSections, type SectionMeta } from "./resume";
+import { links, profile, sections as resumeSections, view, type SectionMeta } from "./resume";
+import type { Cta } from "./view";
+
+export type { Cta };
 
 /** One stop on the dolly track. Content sections carry their résumé heading; hero and footer do not. */
 export interface Place {
@@ -29,18 +32,7 @@ export const TRACK: Place[] = PLACES.filter((p) => p.id !== "footer");
 
 export const placeById = Object.fromEntries(PLACES.map((p) => [p.id, p])) as Record<SectionId, Place>;
 
-export interface Cta {
-  label: string;
-  href: string;
-  variant: "primary" | "ghost" | "link";
-  external?: boolean;
-}
-
-export const heroCtas: Cta[] = [
-  { label: "View projects", href: "#projects", variant: "primary" },
-  { label: "Email", href: `mailto:${profile.email}`, variant: "ghost" },
-  { label: "Résumé (PDF)", href: withBase(profile.resumePdf), variant: "link", external: true },
-];
+export const heroCtas: Cta[] = view.hero.ctas;
 
 /** Links listed in the phone stage sheet and the footer. */
 export const sheetLinks = [
@@ -51,4 +43,4 @@ export const sheetLinks = [
 ] as const;
 
 /** The iron letters of the name, one body each, in hanging order. */
-export const NAME_ROWS: readonly [string, string] = [profile.firstName.toUpperCase(), profile.lastName.toUpperCase()];
+export const NAME_ROWS: readonly [string, string] = view.hero.nameRows;

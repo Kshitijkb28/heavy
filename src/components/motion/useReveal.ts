@@ -370,6 +370,21 @@ export function createRevealController(root: HTMLElement, bundle: GsapBundle): R
 }
 
 let activeController: RevealController | null = null;
+/** Set for good by `suspendReveals()` (the in-page editor); a controller that would start later never does. */
+let suspended = false;
+
+/**
+ * The in-page editor: stop the weight-drop reveals for the rest of the visit. Every hold under `main` shows at once, the
+ * running controller is disposed (prepared blocks get their pristine markup back), and a controller still waiting for
+ * GSAP or the fonts never starts, so SplitText never touches the preview that React re-renders as you type.
+ */
+export function suspendReveals(): void {
+  suspended = true;
+  activeController?.dispose();
+  activeController = null;
+  const main = document.querySelector<HTMLElement>("main");
+  if (main) releaseHolds(main);
+}
 
 /** Live reveal counters for the debug overlay (U8) and the lab; null until the controller runs (calm mode never runs one). */
 export function revealStats(): Record<RevealState, number> | null {
@@ -411,7 +426,7 @@ export function startReveals(root: HTMLElement, opts: StartRevealsOptions = {}):
     loadGsap()
       .then(async (bundle) => {
         await fontsSettled(REVEAL.fontsWaitMs);
-        if (disposed) return;
+        if (disposed || suspended) return;
         if (mq.matches) {
           fallback();
           return;

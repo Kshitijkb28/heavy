@@ -51,12 +51,15 @@ export function tubeLevel(t: number, index: number, count = 5, window: { start: 
   return on ? 0.55 + 0.45 * hash1(step * 3.1 + index) : 0.03 + 0.05 * p;
 }
 
-/** Both Experience bays for `t`: fade in from 1.7, the nearer entry lit, hand over at 2.5, fade out by 3.4; the idle one keeps a faint glow. */
-export function bayLevels(t: number): [number, number] {
+/**
+ * Both Experience bays for `t`: fade in from 1.7, the nearer entry lit, hand over at 2.5, fade out by 3.4; the idle one
+ * keeps a faint glow. A bay with no plate (`lit` false: one company so far) stays dark.
+ */
+export function bayLevels(t: number, lit: readonly [boolean, boolean] = [true, true]): [number, number] {
   const enter = smoothstep(BAY_DRIVE.enter[0], BAY_DRIVE.enter[1], t) * (1 - smoothstep(BAY_DRIVE.leave[0], BAY_DRIVE.leave[1], t));
   const cross = smoothstep(BAY_DRIVE.cross[0], BAY_DRIVE.cross[1], t);
   const idle = BAY_DRIVE.idle;
-  return [enter * (idle + (1 - idle) * (1 - cross)), enter * (idle + (1 - idle) * cross)];
+  return [lit[0] ? enter * (idle + (1 - idle) * (1 - cross)) : 0, lit[1] ? enter * (idle + (1 - idle) * cross) : 0];
 }
 
 /** The About lamp simulates only while the camera is near it. */
@@ -69,11 +72,20 @@ export function doorAngle(t: number): number {
   return DOOR.ajar + (DOOR.open - DOOR.ajar) * smoothstep(DOOR.swing[0], DOOR.swing[1], t);
 }
 
-/** z of the Projects follow spot: holds on each initial and slides between the sub-stops (t 3.0 / 3.33 / 3.66). */
-export function initialSpotZ(t: number): number {
+/**
+ * z of the Projects follow spot: holds on each initial at its sub-stop (t = 3 + i/n) and slides to the next one through
+ * the middle half of the gap between them.
+ */
+export function initialSpotZ(t: number, zs: readonly number[] = INITIALS.zs): number {
+  const n = zs.length;
+  if (n === 0) return -24;
   const u = clamp01(t - 3);
-  const [z0, z1, z2] = INITIALS.zs;
-  return z0 + (z1 - z0) * smoothstep(0.08, 0.25, u) + (z2 - z1) * smoothstep(0.42, 0.58, u);
+  let z = zs[0];
+  for (let k = 1; k < n; k++) {
+    const centre = (k - 0.5) / n;
+    z += (zs[k] - zs[k - 1]) * smoothstep(centre - 0.25 / n, centre + 0.25 / n, u);
+  }
+  return z;
 }
 
 /** FogExp2 density for `t`: the hall haze inside, thinning once the camera is through the door. */

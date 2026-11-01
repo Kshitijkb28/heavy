@@ -6,7 +6,10 @@ import { fitScale, layoutName, quantiseAspect, REF_ASPECT } from "@/components/s
 import { NAME_ROWS } from "@/data/derived";
 import { SECTION_ORDER, type Aspect, type Keyframe } from "@/lib/contracts";
 import { HERO_FIT, projectToNdc } from "./frame";
-import { FRAMING, NOMINAL_ASPECT, PROJECT_STOPS, WORLD, buildKeyframes, buildPath, createPathSample, heroDistance, heroGeometry, heroVisibleWidth, keyframes, keyframesFor, pathFor, samplePath, type HeroBox } from "./places";
+import { initialZs } from "@/components/scene/world/layout";
+import { projects } from "@/data/resume";
+import type { Vec3 } from "@/lib/contracts";
+import { FRAMING, NOMINAL_ASPECT, PROJECT_STOPS, WORLD, buildKeyframes, buildPath, createPathSample, heroDistance, heroGeometry, heroVisibleWidth, keyframes, keyframesFor, pathFor, projectStops, samplePath, type HeroBox, type InitialPlace } from "./places";
 
 const T_MAX = SECTION_ORDER.length - 1;
 
@@ -37,6 +40,77 @@ function frameAt(frames: readonly Keyframe[], t: number): Keyframe {
   return f;
 }
 
+/** n initials hung the way the hall hangs them (U3 `Initials` at x 2.6, y 2.5). */
+const initialsFor = (n: number): InitialPlace[] => initialZs(n).map((z, i) => ({ id: `p${i}`, position: [2.6, 2.5, z] as Vec3 }));
+/** an iron initial's half extents at scale 2.2 (cap height ≈ 2.2 m, Anton ≈ 0.6 em wide, extrusion and bevels) */
+const HALF: Vec3 = [0.75, 1.2, 0.3];
+
+/** Screen bounds of an initial's box from the corners in front of the lens (behind it, a corner projects mirrored). */
+function screenBox(f: Keyframe, centre: Vec3, aspect: number) {
+  const b = { left: Infinity, right: -Infinity, bottom: Infinity, top: -Infinity, near: Infinity, far: -Infinity };
+  for (const dx of [-1, 1]) for (const dy of [-1, 1]) for (const dz of [-1, 1]) {
+    const p = projectToNdc(f.position, f.target, [centre[0] + dx * HALF[0], centre[1] + dy * HALF[1], centre[2] + dz * HALF[2]], f.fov ?? 32, aspect);
+    if (p.depth <= 0.1) continue;
+    b.left = Math.min(b.left, p.x);
+    b.right = Math.max(b.right, p.x);
+    b.bottom = Math.min(b.bottom, p.y);
+    b.top = Math.max(b.top, p.y);
+    b.near = Math.min(b.near, p.depth);
+    b.far = Math.max(b.far, p.depth);
+  }
+  return b;
+}
+
+describe("places: project stops follow the project count", () => {
+  it("puts one stop per project at 3 + i/n", () => {
+    expect(projectStops(1)).toEqual([3]);
+    expect(projectStops(4)).toEqual([3, 3.25, 3.5, 3.75]);
+    expect(PROJECT_STOPS).toEqual(projectStops(projects.length));
+    expect(WORLD.initials.map((p) => p.id)).toEqual(projects.map((p) => p.id));
+  });
+
+  it("frames each initial with no nearer initial in front of it, for one to six projects, on both aspects", () => {
+    for (const n of [1, 2, 3, 4, 5, 6]) {
+      const initials = initialsFor(n);
+      for (const kind of ["landscape", "portrait"] as const) {
+        const aspect = NOMINAL_ASPECT[kind];
+        const frames = buildKeyframes(aspect, null, initials);
+        projectStops(n).forEach((t, i) => {
+          const f = frameAt(frames, t);
+          const p = projectToNdc(f.position, f.target, initials[i].position, f.fov ?? 32, aspect);
+          expect(p.x, `${kind} n=${n} stop ${i}`).toBeCloseTo(FRAMING[kind].project[0], 5);
+          expect(p.y, `${kind} n=${n} stop ${i}`).toBeCloseTo(FRAMING[kind].project[1], 5);
+          const target = screenBox(f, initials[i].position, aspect);
+          initials.forEach((other, j) => {
+            if (j === i) return;
+            const o = screenBox(f, other.position, aspect);
+            const inFront = o.near < target.far && o.far > 0;
+            const overlaps = o.left < target.right && o.right > target.left && o.bottom < target.top && o.top > target.bottom;
+            expect(inFront && overlaps, `${kind} n=${n}: initial ${j} covers initial ${i} at its stop`).toBe(false);
+          });
+        });
+      }
+    }
+  });
+
+  it("never flies the camera through an initial, for one to six projects, on both aspects", () => {
+    for (const n of [1, 3, 4, 6]) {
+      const initials = initialsFor(n);
+      for (const kind of ["landscape", "portrait"] as const) {
+        const path = buildPath(buildKeyframes(NOMINAL_ASPECT[kind], null, initials));
+        const s = createPathSample();
+        for (let t = 2.5; t <= 4.2; t += 0.002) {
+          samplePath(path, t, s);
+          for (const initial of initials) {
+            const d = s.position.distanceTo(new Vector3(...initial.position));
+            expect(d, `${kind} n=${n} t=${t.toFixed(3)}`).toBeGreaterThan(1.5);
+          }
+        }
+      }
+    }
+  });
+});
+
 describe("places: keyframe tables", () => {
   it("exports valid static tables for both aspects", () => {
     expectValidTable(keyframes.landscape);
@@ -62,9 +136,7 @@ describe("places: keyframe tables", () => {
       };
       check(0, WORLD.name.centre, kind === "landscape" ? heroGeometry(aspect).ndc : F.hero);
       check(1, WORLD.lamp, F.about);
-      check(PROJECT_STOPS[0], WORLD.initials.yot, F.project);
-      check(PROJECT_STOPS[1], WORLD.initials.remodely, F.project);
-      check(PROJECT_STOPS[2], WORLD.initials.servicepoints, F.project);
+      WORLD.initials.forEach((initial, i) => check(PROJECT_STOPS[i], initial.position, F.project));
       check(4, WORLD.tubeWall, F.stack);
       check(5, WORLD.door, F.education);
     }
@@ -259,15 +331,19 @@ describe("places: spline", () => {
       expect(a.target.distanceTo(b.target)).toBeLessThan(1e-4);
       expect(Math.abs(a.fov - b.fov)).toBeLessThan(1e-4);
     }
-    let maxSpeed = 0;
-    samplePath(path, 0, a);
-    for (let t = 0.001; t <= 7; t += 0.001) {
-      samplePath(path, t, b);
-      maxSpeed = Math.max(maxSpeed, b.position.distanceTo(a.position) / 0.001);
-      a.position.copy(b.position);
+    // metres per unit of t: the fastest leg (the last initial → the tube wall, ~14 m in 1/n of a section) peaks near 50
+    // for the designed three; each project card is one viewport whatever n is, so per pixel scrolled it stays the same
+    for (const n of [1, 3, 6]) {
+      const p = buildPath(buildKeyframes(NOMINAL_ASPECT.landscape, null, initialsFor(n)));
+      let maxSpeed = 0;
+      samplePath(p, 0, a);
+      for (let t = 0.001; t <= 7; t += 0.001) {
+        samplePath(p, t, b);
+        maxSpeed = Math.max(maxSpeed, b.position.distanceTo(a.position) / 0.001);
+        a.position.copy(b.position);
+      }
+      expect(maxSpeed, `n=${n}`).toBeLessThan(80 * Math.max(1, n / 3));
     }
-    // metres per unit of t: the fastest leg (S initial → the tube wall, 14 m in a third of a section) peaks near 50
-    expect(maxSpeed).toBeLessThan(80);
   });
 
   it("refuses an empty table", () => {

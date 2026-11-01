@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { bayLevels, beaconPhase, doorAngle, doorVolumeLevel, fogDensity, hash1, initialSpotZ, lampLive, layoutPlate, mulberry32, noiseField, pendulumEnergy, rectArea, smoothstep, splitWall, stepPendulum, tubeLevel } from "./drives";
-import { BAY_DRIVE, BAYS, DOOR, LAMP, TUBE_WINDOW, TUBES } from "./layout";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { getMetrics, parseTypeface } from "@/components/scene/letters/glyphs";
+import { BAY, BAY_DRIVE, BAYS, DOOR, INITIALS, LAMP, PLATE_MAX_WIDTH, TUBE_WINDOW, TUBES, bayWords, initialZs, plateScaleFor, plateWord, tubeLayout } from "./layout";
+import { experience, projects, skills } from "@/data/resume";
 
 describe("beaconPhase", () => {
   it("runs 0 → 1 once per 9 s turn and wraps", () => {
@@ -18,14 +22,15 @@ describe("tubeLevel", () => {
       const i = tube.index;
       const span = (TUBE_WINDOW.end - TUBE_WINDOW.start) / TUBES.length;
       const t0 = TUBE_WINDOW.start + i * span;
-      expect(tubeLevel(t0 - 0.01, i)).toBe(0);
-      expect(tubeLevel(t0 + span + 0.001, i)).toBe(1);
+      expect(tubeLevel(t0 - 0.01, i, TUBES.length)).toBe(0);
+      expect(tubeLevel(t0 + span + 0.001, i, TUBES.length)).toBe(1);
       for (let p = 0.01; p < 1; p += 0.05) {
-        const v = tubeLevel(t0 + p * span, i);
+        const v = tubeLevel(t0 + p * span, i, TUBES.length);
         expect(v).toBeGreaterThanOrEqual(0);
         expect(v).toBeLessThanOrEqual(1);
       }
     }
+    // the designed five
     expect(tubeLevel(3.77, 0)).toBe(1);
     expect(tubeLevel(3.77, 4)).toBe(0);
     expect(tubeLevel(4.4, 4)).toBe(1);
@@ -51,6 +56,12 @@ describe("bayLevels", () => {
     expect(b0).toBeCloseTo(BAY_DRIVE.idle, 1);
     expect(bayLevels(3.6)).toEqual([0, 0]);
     expect(BAYS).toHaveLength(2);
+  });
+  it("keeps a bay without a plate dark", () => {
+    for (const t of [2.1, 2.5, 2.9]) {
+      expect(bayLevels(t, [true, false])[1]).toBe(0);
+      expect(bayLevels(t, [true, false])[0]).toBe(bayLevels(t)[0]);
+    }
   });
 });
 
@@ -184,12 +195,14 @@ describe("smoothstep", () => {
 
 describe("initialSpotZ / fogDensity / doorVolumeLevel", () => {
   it("holds the follow spot on each initial at the sub-stops and slides between them", () => {
-    expect(initialSpotZ(0)).toBe(-24);
-    expect(initialSpotZ(3)).toBe(-24);
-    expect(initialSpotZ(3.333)).toBeCloseTo(-30, 5);
-    expect(initialSpotZ(3.667)).toBeCloseTo(-36, 5);
-    expect(initialSpotZ(4)).toBe(-36);
-    const mid = initialSpotZ(3.167);
+    // the designed three (the live count is covered by "holds the follow spot on every initial at its stop")
+    const zs = initialZs(3);
+    expect(initialSpotZ(0, zs)).toBe(-24);
+    expect(initialSpotZ(3, zs)).toBe(-24);
+    expect(initialSpotZ(3.333, zs)).toBeCloseTo(-30, 5);
+    expect(initialSpotZ(3.667, zs)).toBeCloseTo(-36, 5);
+    expect(initialSpotZ(4, zs)).toBe(-36);
+    const mid = initialSpotZ(3.167, zs);
     expect(mid).toBeLessThan(-24);
     expect(mid).toBeGreaterThan(-30);
   });
@@ -205,5 +218,69 @@ describe("initialSpotZ / fogDensity / doorVolumeLevel", () => {
     expect(doorVolumeLevel(5.95)).toBe(0);
     expect(doorVolumeLevel(5.8)).toBeGreaterThan(0);
     expect(doorVolumeLevel(5.8)).toBeLessThan(1);
+  });
+});
+
+describe("the hall follows the content counts", () => {
+  it("hangs up to three initials on today's 6 m spacing and spreads four to six over z −21 … −37", () => {
+    expect(initialZs(1)).toEqual([-24]);
+    expect(initialZs(2)).toEqual([-24, -30]);
+    expect(initialZs(3)).toEqual([-24, -30, -36]);
+    for (const n of [4, 5, 6]) {
+      const zs = initialZs(n);
+      expect(zs).toHaveLength(n);
+      expect(zs[0]).toBe(-21);
+      expect(zs[n - 1]).toBeCloseTo(-37, 9);
+      for (let i = 1; i < n; i++) expect(zs[i - 1] - zs[i]).toBeCloseTo(16 / (n - 1), 9);
+    }
+    expect(INITIALS.zs).toEqual(initialZs(projects.length));
+  });
+
+  it("holds the follow spot on every initial at its stop, for any count", () => {
+    for (const n of [1, 2, 4, 6]) {
+      const zs = initialZs(n);
+      for (let i = 0; i < n; i++) expect(initialSpotZ(3 + i / n, zs)).toBeCloseTo(zs[i], 9);
+      expect(initialSpotZ(4, zs)).toBeCloseTo(zs[n - 1], 9);
+      let prev = Infinity;
+      for (let t = 3; t <= 4; t += 0.01) {
+        const z = initialSpotZ(t, zs);
+        expect(z).toBeLessThanOrEqual(prev + 1e-12);
+        prev = z;
+      }
+    }
+  });
+
+  it("hangs one tube per skill group on today's ladder", () => {
+    const five = tubeLayout(5).map((t) => t.y);
+    [4.1, 3.48, 2.86, 2.24, 1.62].forEach((y, i) => expect(five[i]).toBeCloseTo(y, 9));
+    expect(tubeLayout(1).map((t) => t.y)[0]).toBeCloseTo(2.86, 9);
+    const eight = tubeLayout(8).map((t) => t.y);
+    expect(eight).toHaveLength(8);
+    expect(eight[0]).toBeCloseTo(4.1, 9);
+    expect(eight[7]).toBeCloseTo(1.62, 9);
+    expect(TUBES).toHaveLength(skills.length);
+  });
+
+  it("casts the two latest companies on the bay plates, in the glyphs the iron has", () => {
+    expect(plateWord("Mind2web LLP")).toBe("MIND2WEB LLP");
+    expect(plateWord("Café & Co.")).toBe("CAFE & CO.");
+    expect(plateWord("Zürich/Labs, GmbH")).toBe("ZURICH LABS GMBH");
+    expect(bayWords(["Ethara AI", "Mind2web LLP", "Older Co"])).toEqual(["ETHARA AI", "MIND2WEB LLP"]);
+    expect(bayWords(["Solo"])).toEqual(["SOLO", ""]);
+    // a promotion is two roles at one company: the plates name two different companies
+    expect(bayWords(["Acme Labs", "ACME LABS", "Old Co"])).toEqual(["ACME LABS", "OLD CO"]);
+    expect(bayWords(["Acme", "Acme"])).toEqual(["ACME", ""]);
+    expect(BAYS.map((b) => b.word)).toEqual(bayWords(experience.map((j) => j.company)));
+  });
+
+  it("casts today's plates at the design scale and a longer name smaller, never wider than MIND2WEB LLP", () => {
+    parseTypeface(JSON.parse(readFileSync(path.resolve(process.cwd(), "public/fonts/anton.typeface.json"), "utf8")));
+    const width = (word: string) => layoutPlate([...word].map((c) => ({ w: getMetrics(c).w, advance: getMetrics(c).advance }))).width;
+    expect(plateScaleFor(width("ETHARA AI"))).toBe(BAY.plateScale);
+    expect(plateScaleFor(width("MIND2WEB LLP"))).toBe(BAY.plateScale);
+    const long = width("NORTHWIND LOGISTICS INTL");
+    expect(plateScaleFor(long)).toBeLessThan(BAY.plateScale);
+    expect(plateScaleFor(long) * long).toBeLessThanOrEqual(PLATE_MAX_WIDTH + 1e-9);
+    expect(PLATE_MAX_WIDTH).toBeLessThan(BAY.width);
   });
 });

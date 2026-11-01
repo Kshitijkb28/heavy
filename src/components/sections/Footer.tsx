@@ -1,13 +1,12 @@
 import clsx from "clsx";
-import { SITE, links, profile } from "@/data/resume";
+import type { SiteView } from "@/data/view";
 import { EXTERNAL } from "./content";
 import styles from "./sections.module.css";
 import { NewTab } from "./NewTab";
 
-const footerLinks = [links.linkedin, links.github, links.site] as const;
-
 /** t = 7, the last mark on the track: name · role, location · ©, links, Back to top (a real `contentinfo`, outside `main`). */
-export function Footer() {
+export function Footer({ view }: { view: SiteView; reveal?: boolean }) {
+  const { profile } = view;
   return (
     <footer id="footer" data-section="footer" className={clsx("footer", styles.footer)}>
       <div className={clsx("ink-well", styles.footerInner)}>
@@ -17,11 +16,11 @@ export function Footer() {
             <span className={styles.footerRole}> · {profile.role}</span>
           </p>
           <p className={clsx("mono", styles.footerMeta)}>
-            {profile.location} · © {SITE.year}
+            {profile.location} · © {view.site.year}
           </p>
         </div>
         <ul className={styles.footerLinks}>
-          {footerLinks.map((link) => (
+          {view.footerLinks.map((link) => (
             <li key={link.href}>
               <a href={link.href} className={clsx("btn btn--link", styles.footerLink)} {...EXTERNAL}>
                 {link.label}

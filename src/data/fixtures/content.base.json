@@ -1,0 +1,273 @@
+{
+  "version": 1,
+  "site": {
+    "title": "Kshitij Bhardwaj — Full Stack Developer",
+    "description": "Full Stack Developer in Gurugram, India with three years of hands-on experience across PHP, Python, JavaScript, React, Laravel, Node.js, FastAPI and Flask — now building the backends, evaluation pipelines and internal tools behind AI-powered applications at Ethara AI.",
+    "year": 2026,
+    "keywords": [
+      "Kshitij Bhardwaj",
+      "Full Stack Developer",
+      "Gurugram",
+      "Python",
+      "FastAPI",
+      "React",
+      "Laravel",
+      "Node.js",
+      "LLM"
+    ]
+  },
+  "profile": {
+    "name": "Kshitij Bhardwaj",
+    "firstName": "Kshitij",
+    "lastName": "Bhardwaj",
+    "initials": "KB",
+    "role": "Full Stack Developer",
+    "city": "Gurugram",
+    "location": "Gurugram, India",
+    "timezone": "Asia/Kolkata",
+    "email": "Kshitijbhardwajkb28@gmail.com",
+    "phone": "9729916844",
+    "phoneCountryCode": "+91",
+    "yearsExperience": 3,
+    "eyebrow": "Full Stack Developer · Gurugram, India",
+    "hook": "Three years shipping full-stack products — now building the backends, evaluation pipelines and internal tools behind AI-powered applications at Ethara AI.",
+    "summary": [
+      "Dedicated, results-oriented full-stack web developer with three years of hands-on experience, an entrepreneurial mindset and a strong professional aptitude in computer science.",
+      "Analytical, innovative and goal-driven, I deliver high-quality solutions and give clients a never-before experience."
+    ],
+    "nowLine": "Today at Ethara AI I build Python backends for AI-powered products and contribute to LLM post-training — dataset preparation, evaluation pipelines and response-quality work.",
+    "resumePdf": "/Kshitij-Bhardwaj-Resume.pdf"
+  },
+  "links": {
+    "site": {
+      "label": "kshitijkb28.github.io",
+      "href": "https://kshitijkb28.github.io"
+    },
+    "linkedin": {
+      "label": "LinkedIn",
+      "href": "https://www.linkedin.com/in/kshitij-bhardwaj-067240232"
+    },
+    "github": {
+      "label": "GitHub",
+      "href": "https://github.com/Kshitijkb28"
+    }
+  },
+  "experience": [
+    {
+      "id": "ethara",
+      "company": "Ethara AI",
+      "href": "https://www.ethara.ai/",
+      "location": "Gurugram",
+      "role": "Software Engineer",
+      "start": "2026-01",
+      "end": "present",
+      "bullets": [
+        "Building APIs and backend systems using Python (FastAPI / Flask) for AI-powered applications.",
+        "Contributing to LLM post-training workflows — dataset preparation, evaluation pipelines and response-quality improvement.",
+        "Developing internal tools to support AI model evaluation and prompt optimisation.",
+        "Integrating LLM capabilities into products for intelligent automation and enhanced user experiences.",
+        "Collaborating with cross-functional teams to improve AI system performance and reliability."
+      ],
+      "tags": [
+        "Python",
+        "FastAPI",
+        "Flask",
+        "LLMs"
+      ]
+    },
+    {
+      "id": "mind2web",
+      "company": "Mind2web LLP",
+      "href": "https://mind2web.io/",
+      "location": "Mohali",
+      "role": "Software Engineer",
+      "start": "2023-08",
+      "end": "2025-10",
+      "bullets": [
+        "Configured and deployed projects on servers, ensuring smooth setup and optimal performance.",
+        "Enhanced platform scalability and performance by fixing critical bugs and optimising backend code.",
+        "Set up Linux-based servers, configured environments (Apache/Nginx, PHP, Node.js) and deployed multiple projects with proper security, monitoring and performance optimisation."
+      ],
+      "tags": [
+        "Linux",
+        "Nginx",
+        "Apache",
+        "PHP",
+        "Node.js"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "id": "yot",
+      "name": "Yot Ecommerce",
+      "href": "https://fuse.systems",
+      "start": "2025-01",
+      "end": "2025-10",
+      "blurb": "Search, workflows, notifications and product management for an e-commerce platform.",
+      "bullets": [
+        "Improved search, workflows and notifications using Meilisearch, Ragic DB and Twilio, plus product-management features with secure OAuth2 authentication.",
+        "Created background jobs that fetch data from third-party suppliers and automatically update product information.",
+        "Implemented PostgreSQL queries to retrieve and display all screen-listing data."
+      ],
+      "tags": [
+        "Meilisearch",
+        "Ragic DB",
+        "Twilio",
+        "OAuth2",
+        "PostgreSQL"
+      ]
+    },
+    {
+      "id": "remodely",
+      "name": "Remodely",
+      "href": "https://remodely.com",
+      "start": "2024-10",
+      "end": "2025-12",
+      "blurb": "Service booking and dashboard modules, plus a flow to design bathrooms and interiors.",
+      "bullets": [
+        "Built the service booking and dashboard modules.",
+        "Created a flow to design bathrooms and interiors."
+      ],
+      "tags": [
+        "Booking",
+        "Dashboards",
+        "Design flow"
+      ]
+    },
+    {
+      "id": "servicepoints",
+      "name": "Service Points",
+      "href": "https://app.servicepoints.nl",
+      "start": "2023-10",
+      "end": "2024-10",
+      "blurb": "Chatbot flows, real-time chat and performance charts.",
+      "bullets": [
+        "Built and integrated chatbot functionality, including custom conversational flows using prompt engineering.",
+        "Developed and enhanced real-time chat features using WebSockets and CKEditor in Node.js.",
+        "Resolved multiple front-end design and UI issues to enhance visual consistency and usability.",
+        "Developed performance charts showing 7-day page-load trends by retrieving response times with automated cURL-based requests."
+      ],
+      "tags": [
+        "Node.js",
+        "WebSockets",
+        "CKEditor",
+        "Prompt engineering",
+        "cURL"
+      ]
+    }
+  ],
+  "skills": [
+    {
+      "id": "languages",
+      "label": "Languages",
+      "items": [
+        "PHP",
+        "Python",
+        "JavaScript",
+        "C++"
+      ]
+    },
+    {
+      "id": "frontend",
+      "label": "Frontend",
+      "items": [
+        "HTML",
+        "CSS",
+        "Bootstrap",
+        "JavaScript",
+        "React"
+      ]
+    },
+    {
+      "id": "backend",
+      "label": "Backend",
+      "items": [
+        "Laravel",
+        "Node.js",
+        "FastAPI",
+        "Flask"
+      ]
+    },
+    {
+      "id": "database",
+      "label": "Database",
+      "items": [
+        "MySQL",
+        "MongoDB",
+        "PostgreSQL"
+      ]
+    },
+    {
+      "id": "cloud",
+      "label": "Cloud",
+      "items": [
+        "AWS S3"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "id": "piet",
+      "school": "Panipat Institute of Engineering and Technology",
+      "degree": "Bachelor of Technology",
+      "field": "Computer Science",
+      "score": "67.4%",
+      "start": "2019-07",
+      "end": "2023-06"
+    },
+    {
+      "id": "hvp",
+      "school": "Hindu Vidya Peeth",
+      "degree": "12th",
+      "field": "Science",
+      "score": "64%",
+      "start": "2018-03",
+      "end": "2019-03"
+    }
+  ],
+  "facts": [
+    {
+      "label": "Experience",
+      "value": "3 years"
+    },
+    {
+      "label": "Based in",
+      "value": "Gurugram, India"
+    },
+    {
+      "label": "Degree",
+      "value": "B.Tech, Computer Science"
+    },
+    {
+      "label": "Now",
+      "value": "Software Engineer, Ethara AI"
+    }
+  ],
+  "titles": {
+    "about": [
+      "Full stack",
+      "by trade."
+    ],
+    "experience": [
+      "Where I have",
+      "shipped."
+    ],
+    "projects": [
+      "Selected",
+      "work."
+    ],
+    "stack": [
+      "Tools I",
+      "reach for."
+    ],
+    "education": [
+      "Where it",
+      "started."
+    ],
+    "contact": [
+      "Let's build",
+      "something."
+    ]
+  }
+}
