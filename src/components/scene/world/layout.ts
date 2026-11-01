@@ -1,8 +1,11 @@
 /**
  * The hall, in metres (docs/DESIGN.md §3). Floor at y 0, the hall runs along −z, x spans ±12. Every world object of U4 is
- * placed from these constants so U5 (camera keyframes) and I1 can aim at them without reading component code.
+ * placed from these constants so U5 (camera keyframes) and I1 can aim at them without reading component code. The set
+ * pieces that stand for content follow the published counts: one initial per project, the two latest companies on the
+ * bay plates, one tube per skill group.
  */
 import type { Vec3 } from "@/lib/contracts";
+import { experience, projects, skills } from "@/data/resume";
 
 export const HALL = {
   xMin: -12,
@@ -39,12 +42,44 @@ export interface BayDef {
   word: string;
   z: number;
 }
-/** Experience: two recessed steel bays in the right wall, in résumé order. */
-export const BAYS: readonly BayDef[] = [
-  { id: "ethara", word: "ETHARA AI", z: -10 },
-  { id: "mind2web", word: "MIND2WEB LLP", z: -16 },
-];
 export const BAY = { width: 4.6, sill: 0.5, height: 3.0, depth: 1.5, plateScale: 0.42, plateY: 2.05 } as const;
+/** The widest plate (m): today's longest name, MIND2WEB LLP (2.34 m), at the design scale; longer names are cast smaller, not wider. */
+export const PLATE_MAX_WIDTH = 2.4;
+
+/** A company name as the iron plate spells it: capitals, accents dropped, anything the baked typeface lacks (A–Z, 0–9, `. @ - & ' ?`) a space. */
+export function plateWord(company: string): string {
+  return company
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9.@\-&'? ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** The two plates: the two latest different companies, newest first (a promotion is one company); empty when there is one. */
+export function bayWords(companies: readonly string[]): [string, string] {
+  const words: string[] = [];
+  for (const c of companies) {
+    const w = plateWord(c);
+    if (w && !words.includes(w)) words.push(w);
+    if (words.length === 2) break;
+  }
+  return [words[0] ?? "", words[1] ?? ""];
+}
+
+/** Plate scale for a word `width` metres wide at scale 1: the design scale, shrunk so the plate keeps the designed footprint. */
+export function plateScaleFor(width: number): number {
+  if (!(width > 0)) return BAY.plateScale;
+  return Math.min(BAY.plateScale, PLATE_MAX_WIDTH / width);
+}
+
+const [bayWord1, bayWord2] = bayWords(experience.map((j) => j.company));
+/** Experience: two recessed steel bays in the right wall carrying the two latest companies (the hall has room for two). */
+export const BAYS: readonly BayDef[] = [
+  { id: "bay-1", word: bayWord1, z: -10 },
+  { id: "bay-2", word: bayWord2, z: -16 },
+];
 /** `t` windows for the bays: fade in from 1.7, hand over at 2.5, fade out by 3.4; the idle bay keeps a faint glow. */
 export const BAY_DRIVE = { enter: [1.7, 2.05] as const, cross: [2.35, 2.65] as const, leave: [3.0, 3.4] as const, idle: 0.12 } as const;
 
@@ -53,10 +88,19 @@ export interface TubeDef {
   y: number;
   z: number;
 }
-/** Stack: five fluorescent tubes stacked on the right wall at z −44, one per skill group (top = Languages). */
+/** Stack: fluorescent tubes stacked on the right wall at z −44, one per skill group (top = the first group). */
 export const TUBE = { x: HALL.xMax - 0.14, length: 2.4, radius: 0.035, dropPerTube: 0.62, topY: 4.1, z: -44 } as const;
-/** a ladder on the right wall: one tube per skill group, top = Languages, each level with its DOM row (DESIGN.md §3) */
-export const TUBES: readonly TubeDef[] = [0, 1, 2, 3, 4].map((index) => ({ index, y: TUBE.topY - TUBE.dropPerTube * index, z: TUBE.z }));
+/** The ladder's height: five tubes 0.62 m apart, as designed; other counts spread over the same height. */
+const TUBE_SPAN = TUBE.dropPerTube * 4;
+
+/** One tube per skill group, top to bottom; a single tube sits at the ladder's centre. */
+export function tubeLayout(count: number): TubeDef[] {
+  if (count <= 1) return [{ index: 0, y: TUBE.topY - TUBE_SPAN / 2, z: TUBE.z }];
+  return Array.from({ length: count }, (_, index) => ({ index, y: TUBE.topY - (TUBE_SPAN * index) / (count - 1), z: TUBE.z }));
+}
+
+/** a ladder on the right wall: one tube per skill group, top = the first group (DESIGN.md §3) */
+export const TUBES: readonly TubeDef[] = tubeLayout(skills.length);
 /** The tubes flicker on in order while `t` runs 3.6 → 4.4 (DESIGN.md §3). */
 export const TUBE_WINDOW = { start: 3.45, end: 3.95 } as const;
 
@@ -71,8 +115,18 @@ export const CONES = {
   initial: { apex: [2.6, 6.8, 0.9] as Vec3, aim: [2.6, -0.3, 1.2] as Vec3, radius: 1.3, intensity: 0.05 },
 } as const;
 
-/** Projects: one cold follow spot steps along the three initials (z −24 / −30 / −36) with the sub-stops of t 3 → 4. */
-export const INITIALS = { x: 2.6, zs: [-24, -30, -36] as const, y: 2.6, spot: { x: 2.6, y: 6.8, zOffset: 0.9, intensity: 760, angle: 0.36, penumbra: 0.6 }, live: [2.6, 3.95] as const } as const;
+/**
+ * z of each project initial: the designed 6 m spacing (−24 / −30 / −36) for up to three; four to six spread evenly over
+ * −21 … −37 (≥ 3.2 m apart), clear of the bays (z −16) and far enough from the tube wall (z −44) that the dolly
+ * swinging from the last initial to the tubes keeps 1.5 m from it.
+ */
+export function initialZs(count: number): number[] {
+  if (count <= 3) return [-24, -30, -36].slice(0, Math.max(0, count));
+  return Array.from({ length: count }, (_, i) => -21 - (16 * i) / (count - 1));
+}
+
+/** Projects: one cold follow spot steps along the initials (one per project) with the sub-stops of t 3 → 4. */
+export const INITIALS = { x: 2.6, zs: initialZs(projects.length) as readonly number[], y: 2.6, spot: { x: 2.6, y: 6.8, zOffset: 0.9, intensity: 760, angle: 0.36, penumbra: 0.6 }, live: [2.6, 3.95] as const } as const;
 
 /** Scene haze: FogExp2 density thins as the camera passes the door so the hall reads far and small from Contact. */
 export const HAZE = { inside: 0.045, outside: 0.016, swing: [5.2, 6.0] as const } as const;

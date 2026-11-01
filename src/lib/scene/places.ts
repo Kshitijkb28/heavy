@@ -10,6 +10,8 @@
 import { Vector3 } from "three";
 import type { Aspect, Keyframe, KeyframeTable, Vec3 } from "@/lib/contracts";
 import { fitScale as rigScale, quantiseAspect } from "@/components/scene/physics/layout-fallback";
+import { INITIALS } from "@/components/scene/world/layout";
+import { projects } from "@/data/resume";
 import { DEFAULT_FOV, HERO_FIT, fitDistanceBox, halfExtents, projectToNdc, solveTargetForNdc, visibleHeight } from "./frame";
 
 /**
@@ -17,6 +19,13 @@ import { DEFAULT_FOV, HERO_FIT, fitDistanceBox, halfExtents, projectToNdc, solve
  * (`sceneState.heroBox`): the DOM h1's box, extended down to the grab hint where the layout leaves a gap (phones).
  */
 export type HeroBox = readonly [number, number, number, number];
+
+/** One hanging project initial as the camera aims at it. */
+export interface InitialPlace {
+  /** the project id */
+  id: string;
+  position: Vec3;
+}
 
 /**
  * Where things stand in the hall (metres), as the camera assumes them. U2/U3/U4 place the real objects; if one moves,
@@ -51,20 +60,21 @@ export const WORLD = {
     [13.3, 2.55, -10],
     [13.3, 2.55, -16],
   ] as readonly Vec3[],
-  /** project initials Y / R / S on chains (U3 `Initials`), keyed by project id */
-  initials: {
-    yot: [2.6, 2.5, -24] as Vec3,
-    remodely: [2.6, 2.5, -30] as Vec3,
-    servicepoints: [2.6, 2.5, -36] as Vec3,
-  },
+  /** the project initials on chains (U3 `Initials`), one per project in page order, hung at `INITIALS.zs` */
+  initials: projects.map((p, i): InitialPlace => ({ id: p.id, position: [INITIALS.x, 2.5, INITIALS.zs[i]] })),
   /** centre of the five Stack tubes on the right wall (U4 `Tubes`, z −40 … −48) */
   tubeWall: [11.86, 2.86, -44] as Vec3,
   /** the Education door: centre of a 3.2 m opening in the far wall (U4 `Door`) */
   door: [2.4, 1.6, -62] as Vec3,
 } as const;
 
-/** Journey parameters of the three project sub-stops (one initial each). */
-export const PROJECT_STOPS: readonly number[] = [3, 3 + 1 / 3, 3 + 2 / 3];
+/** Journey parameters of the project sub-stops: one per initial, the projects section split evenly (t = 3 + i/n). */
+export function projectStops(count: number): number[] {
+  const n = Math.max(1, count);
+  return Array.from({ length: n }, (_, i) => 3 + i / n);
+}
+
+export const PROJECT_STOPS: readonly number[] = projectStops(WORLD.initials.length);
 
 /**
  * Where each lit thing sits on screen (NDC) so it stays in the half (landscape) or third (portrait) of the viewport
@@ -198,14 +208,24 @@ export function heroVisibleWidth(aspectRatio: number, box?: HeroBox | null): num
 
 const mid = (a: Vec3, b: Vec3): Vec3 => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
 
-/** Builds the keyframe table for one aspect ratio (width / height). Sorted by t; first at 0, last at 7. */
-export function buildKeyframes(aspectRatio: number, box?: HeroBox | null): readonly Keyframe[] {
+/**
+ * Builds the keyframe table for one aspect ratio (width / height). Sorted by t; first at 0, last at 7. One project stop
+ * per initial (`projectStops`), each camera 3.8 m off the initials' line and 6.5 m in front of its initial: about 30°
+ * off the letter's face, so it reads, while the nearer initials fall outside the frame and the dolly never passes
+ * through one, however closely they hang.
+ */
+export function buildKeyframes(aspectRatio: number, box?: HeroBox | null, initials: readonly InitialPlace[] = WORLD.initials): readonly Keyframe[] {
   const kind = aspectKind(aspectRatio);
   const F = FRAMING[kind];
   const fov = DEFAULT_FOV;
   const look = (position: Vec3, point: Vec3, ndc: readonly [number, number]): Keyframe["target"] => solveTargetForNdc(position, point, ndc, fov, aspectRatio);
   const [bay1, bay2] = WORLD.bays;
-  const { yot, remodely, servicepoints } = WORLD.initials;
+  const stops = projectStops(initials.length);
+  const projectFrames = (projectPosition: (p: Vec3) => Vec3): Keyframe[] =>
+    initials.map(({ position: p }, i) => {
+      const position = projectPosition(p);
+      return { t: stops[i], position, target: look(position, p, F.project), fov };
+    });
   const door = WORLD.door;
   const contactPosition: Vec3 = [door[0], 1.95, door[2] - 1.9];
   const contactTarget: Vec3 = [0.3, 2.3, -35];
@@ -214,7 +234,7 @@ export function buildKeyframes(aspectRatio: number, box?: HeroBox | null): reado
     const hero = heroGeometry(aspectRatio, box);
     const aboutPosition: Vec3 = [6.6, 2.2, 2.4];
     const experiencePosition: Vec3 = [5.0, 2.3, -1.0];
-    const projectPosition = (p: Vec3): Vec3 => [-1.2, 2.1, p[2] + 6.5];
+    const projectPosition = (p: Vec3): Vec3 => [p[0] - 3.8, 2.1, p[2] + 6.5];
     const stackPosition: Vec3 = [3.5, 2.9, -44.0];
     const educationPosition: Vec3 = [-2.0, 1.9, -52.5];
     const frames: Keyframe[] = [
@@ -222,9 +242,7 @@ export function buildKeyframes(aspectRatio: number, box?: HeroBox | null): reado
       { t: 1, position: aboutPosition, target: look(aboutPosition, WORLD.lamp, F.about), fov },
       { t: 2, position: experiencePosition, target: look(experiencePosition, mid(bay1, bay2), F.experience), fov },
       { t: 2.5, position: [2.6, 2.2, -8.5], target: look([2.6, 2.2, -8.5], bay2, F.experience), fov },
-      { t: PROJECT_STOPS[0], position: projectPosition(yot), target: look(projectPosition(yot), yot, F.project), fov },
-      { t: PROJECT_STOPS[1], position: projectPosition(remodely), target: look(projectPosition(remodely), remodely, F.project), fov },
-      { t: PROJECT_STOPS[2], position: projectPosition(servicepoints), target: look(projectPosition(servicepoints), servicepoints, F.project), fov },
+      ...projectFrames(projectPosition),
       { t: 4, position: stackPosition, target: look(stackPosition, WORLD.tubeWall, F.stack), fov },
       { t: 5, position: educationPosition, target: look(educationPosition, door, F.education), fov },
       { t: 5.5, position: [door[0], 1.7, door[2] + 1.2], target: [door[0], 1.7, door[2] - 5], fov },
@@ -238,7 +256,8 @@ export function buildKeyframes(aspectRatio: number, box?: HeroBox | null): reado
   const hero = heroGeometry(aspectRatio, box);
   const aboutPosition: Vec3 = [5.0, 1.8, 3.8];
   const experiencePosition: Vec3 = [3.5, 2.3, 2.5];
-  const projectPosition = (p: Vec3): Vec3 => [p[0], 1.6, p[2] + 7.0];
+  // off the initials' line like landscape: straight down it, a nearer initial would hang right in front of the lens
+  const projectPosition = (p: Vec3): Vec3 => [p[0] - 3.8, 1.6, p[2] + 6.5];
   const stackPosition: Vec3 = [-1.0, 2.9, -44.0];
   const educationPosition: Vec3 = [door[0], 1.7, -47.0];
   const frames: Keyframe[] = [
@@ -246,9 +265,7 @@ export function buildKeyframes(aspectRatio: number, box?: HeroBox | null): reado
     { t: 1, position: aboutPosition, target: look(aboutPosition, WORLD.lamp, F.about), fov },
     { t: 2, position: experiencePosition, target: look(experiencePosition, mid(bay1, bay2), F.experience), fov },
     { t: 2.5, position: [4.0, 2.2, -8.0], target: look([4.0, 2.2, -8.0], bay2, F.experience), fov },
-    { t: PROJECT_STOPS[0], position: projectPosition(yot), target: look(projectPosition(yot), yot, F.project), fov },
-    { t: PROJECT_STOPS[1], position: projectPosition(remodely), target: look(projectPosition(remodely), remodely, F.project), fov },
-    { t: PROJECT_STOPS[2], position: projectPosition(servicepoints), target: look(projectPosition(servicepoints), servicepoints, F.project), fov },
+    ...projectFrames(projectPosition),
     { t: 4, position: stackPosition, target: look(stackPosition, WORLD.tubeWall, F.stack), fov },
     { t: 5, position: educationPosition, target: look(educationPosition, door, F.education), fov },
     { t: 5.5, position: [door[0], 1.7, door[2] + 1.2], target: [door[0], 1.7, door[2] - 5], fov },

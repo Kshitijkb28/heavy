@@ -14,7 +14,10 @@
     "verify:overflow": "node scripts/verify/overflow.mjs",
     "verify:contrast": "node scripts/verify/contrast.mjs",
     "verify:lighthouse": "node scripts/verify/lighthouse.mjs",
-    "verify:budget": "node scripts/verify/budget.mjs"
+    "verify:budget": "node scripts/verify/budget.mjs",
+    "verify:stops": "node scripts/verify/stops.mjs",
+    "verify:editor": "node scripts/verify/editor.mjs",
+    "verify:publish": "node scripts/verify/publish.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.19.2",

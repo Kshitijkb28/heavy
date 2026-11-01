@@ -3,6 +3,7 @@ import { Anton, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SITE, links, profile } from "@/data/resume";
 import { withBase } from "@/lib/base";
+import { jsonLd } from "@/lib/json-ld";
 import { Providers } from "@/components/providers/Providers";
 import { SkipLink } from "@/components/chrome/SkipLink";
 import { TopBar } from "@/components/chrome/TopBar";
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
   applicationName: "Kshitij Bhardwaj",
   authors: [{ name: profile.name, url: SITE.url }],
   creator: profile.name,
-  keywords: ["Kshitij Bhardwaj", "Full Stack Developer", "Gurugram", "Python", "FastAPI", "React", "Laravel", "Node.js", "LLM"],
+  keywords: [...SITE.keywords],
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
@@ -56,7 +57,7 @@ const personJsonLd = {
   url: SITE.url,
   email: `mailto:${profile.email}`,
   address: { "@type": "PostalAddress", addressLocality: profile.city, addressCountry: "IN" },
-  worksFor: { "@type": "Organization", name: profile.now.company, url: profile.now.href },
+  ...(profile.now ? { worksFor: { "@type": "Organization", name: profile.now.company, ...(profile.now.href ? { url: profile.now.href } : {}) } } : {}),
   sameAs: [links.linkedin.href, links.github.href, SITE.url],
 };
 
@@ -74,7 +75,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Stage />
           <Toast />
         </Providers>
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(personJsonLd) }} />
       </body>
     </html>
   );

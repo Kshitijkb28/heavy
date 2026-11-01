@@ -1,19 +1,21 @@
 "use client";
 
 /**
- * The three iron project initials Y / R / S hanging beside their projects at z −24 / −30 / −36 (DESIGN.md §3),
- * the same hang system as the name; each is its own registry group (the project id) so `pushAll(m, "yot")` works.
+ * The iron project initials, one per project, hanging beside their cards at `INITIALS.zs` (z −24 / −30 / −36 for three,
+ * DESIGN.md §3), the same hang system as the name; each is its own registry group (the project id) so
+ * `pushAll(m, projectId)` works.
  */
 import { useMemo } from "react";
 import { projects } from "@/data/resume";
 import { TIER_CONFIGS } from "@/lib/contracts";
+import { INITIALS } from "@/components/scene/world/layout";
 import { useUI } from "@/store/ui";
 import { HangSystem } from "./HangSystem";
 import { layoutWord, useGlyphWarmup, type LetterSlot } from "./letters-bridge";
 
 export const INITIAL_X = 2.6;
 export const INITIAL_Y = 2.5;
-export const INITIAL_Z: readonly number[] = [-24, -30, -36];
+export const INITIAL_Z: readonly number[] = INITIALS.zs;
 export const INITIAL_SCALE = 2.2;
 export const INITIAL_MASS = 18;
 

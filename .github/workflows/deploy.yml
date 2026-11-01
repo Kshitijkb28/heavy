@@ -1,6 +1,8 @@
 # Deploys the static export to GitHub Pages. Works unchanged for a user site (<owner>.github.io → base path "")
 # and for a project site (<owner>/<repo> → base path "/<repo>"): actions/configure-pages reports both, and the build
 # reads NEXT_PUBLIC_BASE_PATH (next.config.ts → basePath) and NEXT_PUBLIC_SITE_URL (metadata, sitemap, robots, JSON-LD).
+# The in-page editor publishes by committing src/data/content.json here, so every publish runs this workflow; an invalid
+# content.json fails the build step and the site keeps its last good version.
 name: Deploy to GitHub Pages
 
 on:
@@ -29,10 +31,20 @@ jobs:
       - id: pages
         uses: actions/configure-pages@v5
       - run: npm ci
+      # the share card carries the eyebrow and site label from src/data/content.json, which the in-page editor commits;
+      # if Chrome is not there the committed og.png is used
+      - name: Share image from the content
+        run: npm run make:og -- --only=og
+        continue-on-error: true
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
       - run: npm run build:static
         env:
           NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
           NEXT_PUBLIC_SITE_URL: ${{ steps.pages.outputs.base_url }}
+          # the editor commits content.json to this repository and branch
+          NEXT_PUBLIC_CONTENT_REPO: ${{ github.repository }}
+          NEXT_PUBLIC_CONTENT_BRANCH: ${{ github.ref_name }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./out

@@ -26,3 +26,14 @@ export function visitLabel(domain: string): string {
 export function prettyUrl(href: string): string {
   return href.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
 }
+
+/**
+ * The reveal contract (U7) for one element: the `hold` class and its `data-reveal*` attributes. Off in the editor
+ * preview, where React re-renders the text as you type and SplitText must never split what React owns.
+ */
+export function holds(on: boolean) {
+  return {
+    cls: on ? "hold" : undefined,
+    at: (mode = "", delay?: number) => (on ? { "data-reveal": mode, ...(delay ? { "data-reveal-delay": String(delay) } : {}) } : {}),
+  };
+}

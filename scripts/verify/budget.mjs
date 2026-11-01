@@ -31,12 +31,13 @@ const PHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWe
 /**
  * Ceilings per tier. Triangles are the design's; draw calls and bodies were re-based on the built scene (2026-10-25):
  * every letter has its own iron material (per-letter heat) and a mirrored reflection mesh, and post adds its passes, so
- * the hero measures ≈ 95 calls on high and ≈ 63 on mid while holding 60 fps with physics under 0.25 ms; 19 bodies =
- * 15 letters + 3 initials + the one shared static body every rope anchor and wall collider hangs on.
+ * the hero measures ≈ 95 calls on high and ≈ 63 on mid while holding 60 fps with physics under 0.25 ms. Bodies are
+ * 15 letters + one initial per project + the one shared static body every rope anchor and wall collider hangs on: the
+ * ceiling is counted from the page under test (`[data-project]`), so a content fixture is checked against its own count.
  */
 const BUDGET = {
-  high: { triangles: 120_000, calls: 110, bodies: 19, dpr: 2, post: true, shadows: true },
-  mid: { triangles: 60_000, calls: 75, bodies: 19, dpr: 1.5, post: false, shadows: false },
+  high: { triangles: 120_000, calls: 110, bodies: "per page", dpr: 2, post: true, shadows: true },
+  mid: { triangles: 60_000, calls: 75, bodies: "per page", dpr: 1.5, post: false, shadows: false },
   low: { triangles: 0, calls: 0, bodies: 0, dpr: 0, post: false, shadows: false },
 };
 const PHYSICS_MS_PHONE = 2;
@@ -101,6 +102,7 @@ for (const profile of PROFILES) {
 
     const places = await page.evaluate(() => [...document.querySelectorAll("[data-section]")].map((el) => el.dataset.section));
     if (!places.length) fail(label, "no [data-section] on the page");
+    const maxBodies = 15 + (await page.locator("[data-project]").count()) + 1;
 
     if (tier === "low") {
       await page.waitForTimeout(1500);
@@ -132,7 +134,7 @@ for (const profile of PROFILES) {
           rows.push({ id, ...r });
           if (r.triangles > budget.triangles) problems.push(`${id}: ${k(r.triangles)} triangles > ${k(budget.triangles)}`);
           if (r.calls > budget.calls) problems.push(`${id}: ${r.calls} draw calls > ${budget.calls}`);
-          if (r.bodies > budget.bodies) problems.push(`${id}: ${r.bodies} bodies > ${budget.bodies}`);
+          if (r.bodies > maxBodies) problems.push(`${id}: ${r.bodies} bodies > ${maxBodies}`);
           if (profile === "phone" && r.hasPhysicsMs && r.physicsMs > PHYSICS_MS_PHONE) problems.push(`${id}: physics step ${r.physicsMs.toFixed(2)} ms > ${PHYSICS_MS_PHONE}`);
         }
         const last = rows.at(-1)?.last ?? (await stats(page));

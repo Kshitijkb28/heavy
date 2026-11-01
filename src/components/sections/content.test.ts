@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { profile } from "@/data/resume";
+import snapshot from "@/data/fixtures/content.base.json";
 import { prettyUrl, splitEmail, splitOnce, visitLabel } from "./content";
 
 describe("prettyUrl", () => {
@@ -12,9 +12,10 @@ describe("prettyUrl", () => {
 
 describe("splitOnce", () => {
   it("links the company inside the now line without altering a character", () => {
-    const parts = splitOnce(profile.nowLine, profile.now.company);
+    const { nowLine } = snapshot.profile;
+    const parts = splitOnce(nowLine, "Ethara AI");
     expect(parts).not.toBeNull();
-    expect(parts!.join("")).toBe(profile.nowLine);
+    expect(parts!.join("")).toBe(nowLine);
     expect(parts![1]).toBe("Ethara AI");
     expect(parts![0].endsWith("at ")).toBe(true);
   });
@@ -26,7 +27,7 @@ describe("splitOnce", () => {
 
 describe("splitEmail", () => {
   it("splits the résumé email at the @", () => {
-    expect(splitEmail(profile.email)).toEqual({ local: "Kshitijbhardwajkb28", domain: "gmail.com" });
+    expect(splitEmail(snapshot.profile.email)).toEqual({ local: "Kshitijbhardwajkb28", domain: "gmail.com" });
   });
   it("keeps a string without @ intact", () => {
     expect(splitEmail("nope")).toEqual({ local: "nope", domain: "" });

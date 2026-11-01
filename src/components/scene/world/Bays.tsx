@@ -2,8 +2,9 @@
 
 /**
  * Experience: two recessed steel bays in the right wall (z −10 / −16), each with a cold tube along its lintel and an
- * iron plate — ETHARA AI / MIND2WEB LLP as merged glyphs (U2 `getGlyph`, laid out from `GlyphData.advance`). The bay
- * nearest the viewport centre lights (`bayLevels(t)`): one moving point light, per-instance tube emission, glow on mid.
+ * iron plate naming one of the two latest companies as merged glyphs (U2 `getGlyph`, laid out from `GlyphData.advance`,
+ * shrunk to fit the bay when the name is long). The bay nearest the viewport centre lights (`bayLevels(t)`): one moving
+ * point light, per-instance tube emission, glow on mid.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
@@ -13,7 +14,7 @@ import { sceneState } from "@/lib/scene-state";
 import { getGlyph, loadTypeface } from "@/components/scene/letters/glyphs";
 import { box, mergeAll, placed } from "./build";
 import { bayLevels, layoutPlate } from "./drives";
-import { BAY, BAYS, HALL } from "./layout";
+import { BAY, BAYS, HALL, plateScaleFor } from "./layout";
 import { createIronPlateMaterial, createSteelMaterial, TOKENS } from "./materials";
 import { GlowSprite } from "./GlowSprite";
 
@@ -28,15 +29,18 @@ const TUBE_Y = BAY.sill + BAY.height - 0.18;
 const TUBE_X = X + 0.16;
 
 const finite = (v: number) => (Number.isFinite(v) ? v : 0);
+/** a bay lights only when it carries a plate (with one company so far the second stays dark) */
+const LIT: [boolean, boolean] = [!!BAYS[0].word, !!BAYS[1].word];
 
 /** One merged geometry for both plates: each word centred on its bay's back panel, reading toward +z, facing the hall. */
 function buildPlates(curveSegments: number): BufferGeometry {
-  const s = BAY.plateScale;
   const parts: BufferGeometry[] = [];
   for (const bay of BAYS) {
     const chars = bay.word.split("");
+    if (!chars.length) continue;
     const glyphs = chars.map((c) => getGlyph(c, curveSegments));
-    const { xs } = layoutPlate(glyphs.map((g) => ({ w: finite(g.size.w), advance: finite(g.advance) })));
+    const { xs, width } = layoutPlate(glyphs.map((g) => ({ w: finite(g.size.w), advance: finite(g.advance) })));
+    const s = plateScaleFor(width);
     const depth = glyphs.reduce((m, g) => Math.max(m, g.size.d), 0);
     const cx = X + BAY.depth - (depth * s) / 2 - 0.02;
     chars.forEach((ch, i) => {
@@ -119,7 +123,7 @@ export function Bays({ cfg, glow }: BaysProps) {
   useFrame((state) => {
     const mesh = inst.current;
     if (!mesh) return;
-    const [l0, l1] = bayLevels(sceneState.t);
+    const [l0, l1] = bayLevels(sceneState.t, LIT);
     levels.current[0] = l0;
     levels.current[1] = l1;
     const e = state.clock.elapsedTime;

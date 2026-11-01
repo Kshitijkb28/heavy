@@ -4,5 +4,6 @@ import { SITE } from "@/data/resume";
 export const dynamic = "force-static";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [{ url: SITE.url, lastModified: new Date("2026-10-15"), changeFrequency: "monthly", priority: 1 }];
+  // the build date: every publish from the in-page editor rebuilds the site
+  return [{ url: SITE.url, lastModified: new Date(), changeFrequency: "monthly", priority: 1 }];
 }

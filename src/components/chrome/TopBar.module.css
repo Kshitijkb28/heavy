@@ -51,3 +51,12 @@
     transform: translate(1px, -1px);
   }
 }
+
+/* the owner's "Edit" (signed-in browsers only), beside Résumé */
+.edit {
+  margin-left: auto;
+  border: 0;
+  border-bottom: 1px dashed var(--signal);
+  background: none;
+  cursor: pointer;
+}

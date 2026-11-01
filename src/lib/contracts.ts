@@ -23,7 +23,7 @@ export interface TierConfig {
   dust: number;
   /** TextGeometry curveSegments for the iron glyphs. */
   curveSegments: number;
-  /** total rigid bodies allowed (15 letters + 3 initials + lamp). */
+  /** total rigid bodies allowed: 15 letters + up to 6 project initials (one per project) + the shared static body. */
   maxBodies: number;
   /** MeshPhysicalMaterial anisotropy on the iron. */
   anisotropy: boolean;
@@ -32,8 +32,8 @@ export interface TierConfig {
 }
 
 export const TIER_CONFIGS: Record<Tier, TierConfig> = {
-  high: { tier: "high", dpr: 2, post: true, shadows: true, reflections: true, cones: true, dust: 400, curveSegments: 4, maxBodies: 19, anisotropy: true, antialias: false },
-  mid: { tier: "mid", dpr: 1.5, post: false, shadows: false, reflections: true, cones: true, dust: 400, curveSegments: 3, maxBodies: 18, anisotropy: false, antialias: true },
+  high: { tier: "high", dpr: 2, post: true, shadows: true, reflections: true, cones: true, dust: 400, curveSegments: 4, maxBodies: 22, anisotropy: true, antialias: false },
+  mid: { tier: "mid", dpr: 1.5, post: false, shadows: false, reflections: true, cones: true, dust: 400, curveSegments: 3, maxBodies: 22, anisotropy: false, antialias: true },
   low: { tier: "low", dpr: 0, post: false, shadows: false, reflections: false, cones: false, dust: 0, curveSegments: 0, maxBodies: 0, anisotropy: false, antialias: false },
 };
 
@@ -61,7 +61,7 @@ export type KeyframeTable = Record<Aspect, readonly Keyframe[]>;
 /** A grabbable iron body registered by U3 (letters and project initials). */
 export interface Grabbable {
   id: string;
-  /** which text this letter belongs to: "name" (hero rows) or a project id ("yot" | "remodely" | "servicepoints") */
+  /** which text this letter belongs to: "name" (hero rows) or the id of the project whose initial it is */
   group: "name" | string;
   /** the rendered mesh (raycast target) */
   mesh: import("three").Object3D;

@@ -112,3 +112,45 @@ describe("scroll map", () => {
     expect(nextVelocity(600, 100, -5)).toBe(600);
   });
 });
+
+describe("scroll map: project sub-stops follow the measured cards", () => {
+  /** contiguous sections, projects (index 3) holding cards of the given heights */
+  function withCards(cardHeights: number[], scrollMargin = 64): MeasuredSection[] {
+    const projectsHeight = cardHeights.reduce((a, b) => a + b, 0);
+    const sections = contiguous(1000, scrollMargin, { projects: projectsHeight });
+    const p = sections.find((s) => s.id === "projects")!;
+    let top = p.top;
+    p.stops = cardHeights.map((h) => {
+      const t = top;
+      top += h;
+      return t;
+    });
+    return sections;
+  }
+
+  it("lands t = 3 + i/n exactly when card i reaches the anchor, however uneven the cards", () => {
+    const sections = withCards([1400, 700, 2100, 900]);
+    const map = buildScrollMap(sections);
+    const stops = sections.find((s) => s.id === "projects")!.stops!;
+    stops.forEach((top, i) => expect(scrollToT(map, top - 64)).toBeCloseTo(3 + i / 4, 12));
+    expect(scrollToT(map, map.spans[4].anchor)).toBe(4);
+  });
+
+  it("stays continuous and monotonic across the sub-stops, and tToScrollY inverts it", () => {
+    const map = buildScrollMap(withCards([1400, 700, 2100]));
+    let prev = 0;
+    for (let y = 0; y <= 9000; y += 5) {
+      const t = scrollToT(map, y);
+      expect(t).toBeGreaterThanOrEqual(prev);
+      expect(t - prev).toBeLessThan(0.01);
+      prev = t;
+    }
+    for (const t of [3, 3.1, 1 / 3 + 3, 3.5, 2 / 3 + 3, 3.9]) expect(scrollToT(map, tToScrollY(map, t))).toBeCloseTo(t, 9);
+  });
+
+  it("keeps the plain mapping without cards or with one card", () => {
+    const plain = buildScrollMap(contiguous());
+    const one = buildScrollMap(withCards([1000]));
+    for (const y of [0, 2936, 3000, 3436, 3900]) expect(scrollToT(one, y)).toBeCloseTo(scrollToT(plain, y), 12);
+  });
+});

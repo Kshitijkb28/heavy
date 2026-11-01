@@ -1,0 +1,475 @@
+/* The in-page editor (loaded only in edit mode). Night Rig tokens from globals.css; 44 px targets, 16 px inputs (no iOS
+   zoom), safe-area insets; a side panel over the 3D half from 64rem, a bottom sheet below. */
+
+/* ---------- edit bar: replaces the top bar while editing ---------- */
+.bar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: calc(var(--header-h) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(var(--gutter), env(safe-area-inset-right)) 0 max(var(--gutter), env(safe-area-inset-left));
+  background: var(--plate);
+  border-bottom: 1px solid var(--seam);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.status {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  margin-right: auto;
+}
+.statusTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.statusTitle::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: var(--signal);
+  box-shadow: 0 0 10px var(--signal);
+}
+.statusLine {
+  overflow: hidden;
+  font-size: var(--t-small);
+  color: var(--muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.statusLine[data-tone="error"] {
+  color: var(--signal);
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------- buttons ---------- */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  padding: 0 14px;
+  border: 1px solid var(--iron);
+  border-radius: 2px;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.button:hover:not(:disabled) {
+  border-color: var(--steel);
+}
+.button:focus-visible,
+.input:focus-visible,
+.editButton:focus-visible {
+  outline: 2px solid var(--mercury);
+  outline-offset: 2px;
+}
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.primary {
+  border-color: var(--mercury);
+  background: var(--mercury);
+  color: var(--void);
+}
+.primary:hover:not(:disabled) {
+  border-color: #ffffff;
+  background: #ffffff;
+}
+.danger {
+  border-color: var(--signal-deep);
+  color: #ffd6dd;
+}
+.quiet {
+  border-color: transparent;
+}
+.icon {
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+/* labels that collapse to their icon on narrow phones (the text stays for screen readers) */
+.wide {
+  display: none;
+}
+@media (width >= 40rem) {
+  .wide {
+    display: inline;
+  }
+}
+
+/* ---------- the Edit button in each previewed section ---------- */
+.editButton {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--tap);
+  margin-top: 6px;
+  padding: 0 14px;
+  border: 1px dashed var(--signal);
+  border-radius: 2px;
+  background: rgba(5, 5, 7, 0.85);
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.editButton:hover {
+  border-style: solid;
+}
+.editButton[aria-expanded="true"] {
+  border-style: solid;
+  background: var(--signal-deep);
+}
+
+/* ---------- panel (desktop) / sheet (phones, tablets) ---------- */
+.panel {
+  position: fixed;
+  top: calc(var(--header-h) + env(safe-area-inset-top));
+  right: 0;
+  bottom: 0;
+  z-index: 65;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(440px, 38vw);
+  min-width: 340px;
+  background: var(--floor);
+  border-left: 1px solid var(--seam);
+  box-shadow: -24px 0 48px rgba(0, 0, 0, 0.5);
+}
+.sheet {
+  position: fixed;
+  inset: auto 0 0;
+  width: 100%;
+  max-width: none;
+  /* leaves the top of the page in view above it */
+  max-height: 78svh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--seam);
+  border-radius: 12px 12px 0 0;
+  background: var(--floor);
+  color: var(--text);
+  overflow: hidden;
+}
+.sheet[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.sheet::backdrop {
+  background: rgba(5, 5, 7, 0.45);
+}
+.panelHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px max(var(--gutter), 20px) 12px;
+  border-bottom: 1px solid var(--seam);
+}
+.panelTitle {
+  margin: 0 auto 0 0;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--mercury);
+}
+.panelBody {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  min-width: 0;
+  padding: 18px max(var(--gutter), 20px) calc(32px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.note {
+  margin: 0;
+  font-size: var(--t-small);
+  line-height: 1.5;
+  color: var(--muted);
+}
+.note strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* ---------- fields ---------- */
+.field {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+.label {
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.counter {
+  float: right;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+.input {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 10px 12px;
+  border: 1px solid var(--iron);
+  border-radius: 2px;
+  background: var(--void);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.input::placeholder {
+  color: var(--steel);
+}
+.input[aria-invalid="true"] {
+  border-color: var(--signal);
+}
+textarea.input {
+  resize: vertical;
+  field-sizing: content;
+  min-height: 88px;
+}
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap);
+  font-size: var(--t-small);
+  color: var(--text);
+}
+.check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--signal);
+}
+.error {
+  margin: 0;
+  font-size: var(--t-small);
+  line-height: 1.4;
+  color: var(--signal);
+}
+.hint {
+  margin: 0;
+  font-size: var(--t-small);
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+/* ---------- tags ---------- */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--iron);
+  border-radius: 2px;
+  background: var(--void);
+}
+.tags[aria-invalid="true"] {
+  border-color: var(--signal);
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  min-height: var(--tap);
+  padding-left: 10px;
+  border: 1px solid var(--seam);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+.tag[data-invalid="true"] {
+  border-color: var(--signal);
+}
+.tagRemove {
+  min-width: var(--tap);
+  min-height: var(--tap);
+  border: 0;
+  background: none;
+  font-size: 1rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.tagInput {
+  flex: 1 1 8rem;
+  min-width: 6rem;
+  min-height: var(--tap);
+  border: 0;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--text);
+}
+.tagInput:focus-visible {
+  outline: none;
+}
+.tags:focus-within {
+  border-color: var(--mercury);
+}
+
+/* ---------- lists of entries ---------- */
+.list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.listHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.listHead .counter {
+  float: none;
+  margin-left: 8px;
+}
+.card {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--seam);
+  border-radius: 2px;
+  background: rgba(5, 5, 7, 0.5);
+}
+.card[data-invalid="true"] {
+  border-color: rgba(255, 51, 85, 0.5);
+}
+/* bullets and paragraphs inside an entry */
+.card .card {
+  gap: 8px;
+  padding: 8px 10px 10px;
+}
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.cardTitle {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.cardTitle[data-empty="true"] {
+  color: var(--steel);
+}
+.removed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 6px 6px 14px;
+  border: 1px dashed var(--iron);
+  font-size: var(--t-small);
+  color: var(--muted);
+}
+
+/* ---------- banners and the publish sheet ---------- */
+.banner {
+  position: fixed;
+  top: calc(var(--header-h) + env(safe-area-inset-top) + 8px);
+  left: 50%;
+  z-index: 66;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  width: min(560px, calc(100vw - 2 * var(--gutter)));
+  padding: 10px 10px 10px 16px;
+  border: 1px solid var(--iron);
+  background: var(--plate);
+  font-size: var(--t-small);
+  transform: translateX(-50%);
+}
+.banner p {
+  flex: 1 1 14rem;
+  margin: 0;
+}
+.dialog {
+  width: min(520px, calc(100vw - 2 * var(--gutter)));
+  max-height: 85svh;
+  padding: 0;
+  border: 1px solid var(--iron);
+  background: var(--floor);
+  color: var(--text);
+}
+.dialog::backdrop {
+  background: rgba(5, 5, 7, 0.6);
+}
+.dialogBody {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  overflow-y: auto;
+}
+.changes {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: var(--t-small);
+}
+.dialogActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
